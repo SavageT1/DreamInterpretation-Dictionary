@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue } from 'motion/react';
-import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, VolumeX, Search, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, VolumeX, Search, X, Image as ImageIcon, Loader2, Share2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { interpretDream, transcribeAudio, speakInterpretation, generateDreamImage } from '../lib/gemini';
 import { cn } from '../lib/utils';
@@ -14,6 +14,8 @@ interface Dream {
 }
 
 export default function DreamJournal() {
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editingDreamId, setEditingDreamId] = React.useState<string | null>(null);
   const [dreamText, setDreamText] = React.useState('');
   const [isRecording, setIsRecording] = React.useState(false);
   const [isInterpreting, setIsInterpreting] = React.useState(false);
@@ -24,6 +26,8 @@ export default function DreamJournal() {
   const [showHistory, setShowHistory] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isPlaying, setIsPlaying] = React.useState(false);
+  const [isSharing, setIsSharing] = React.useState(false);
+  const [generationStatus, setGenerationStatus] = React.useState('Analyzing Symbols...');
   const [audioContext, setAudioContext] = React.useState<AudioContext | null>(null);
   const [audioBufferSource, setAudioBufferSource] = React.useState<AudioBufferSourceNode | null>(null);
 
@@ -42,6 +46,10 @@ export default function DreamJournal() {
   const bgY = useTransform(smoothY, [-500, 500], [20, -20]);
   const bg2X = useTransform(smoothX, [-500, 500], [-30, 30]);
   const bg2Y = useTransform(smoothY, [-500, 500], [-30, 30]);
+
+  // 3D Tilt for main container
+  const rotateX = useTransform(smoothY, [-500, 500], [7, -7]);
+  const rotateY = useTransform(smoothX, [-500, 500], [-7, 7]);
 
   React.useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -68,6 +76,56 @@ export default function DreamJournal() {
   React.useEffect(() => {
     localStorage.setItem('dream_history', JSON.stringify(history));
   }, [history]);
+
+  // Cycle through generation statuses
+  React.useEffect(() => {
+    if (isGeneratingImage) {
+      const statuses = [
+        'Analyzing Symbols...', 
+        'Distilling Emotions...', 
+        'Painting Dreamscape...', 
+        'Adding Ethereal Glow...', 
+        'Finalizing Vision...'
+      ];
+      let i = 0;
+      const interval = setInterval(() => {
+        i = (i + 1) % statuses.length;
+        setGenerationStatus(statuses[i]);
+      }, 2500);
+      return () => clearInterval(interval);
+    } else {
+      setGenerationStatus('Analyzing Symbols...');
+    }
+  }, [isGeneratingImage]);
+
+  // Request notification permission and schedule daily reminder
+  React.useEffect(() => {
+    if ('Notification' in window) {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          const scheduleReminder = () => {
+            const now = new Date();
+            const targetTime = new Date();
+            targetTime.setHours(8, 0, 0, 0); // Set to 8:00 AM
+
+            if (now > targetTime) {
+              targetTime.setDate(targetTime.getDate() + 1);
+            }
+
+            const delay = targetTime.getTime() - now.getTime();
+            setTimeout(() => {
+              new Notification("Time to record your dream!", {
+                body: "What did you see in your dreams last night?",
+                icon: "/favicon.ico"
+              });
+              scheduleReminder();
+            }, delay);
+          };
+          scheduleReminder();
+        }
+      });
+    }
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -111,6 +169,23 @@ export default function DreamJournal() {
       setIsRecording(false);
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
+  };
+
+  const handleNewDream = () => {
+    setDreamText('');
+    setInterpretation(null);
+    setCurrentImageUrl(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingDreamId) return;
+    setHistory(history.map(dream => dream.id === editingDreamId ? { ...dream, text: dreamText, interpretation: interpretation || undefined } : dream));
+    setIsEditing(false);
+    setEditingDreamId(null);
+    setDreamText('');
+    setInterpretation(null);
+    setCurrentImageUrl(null);
   };
 
   const handleInterpret = async () => {
@@ -189,6 +264,28 @@ export default function DreamJournal() {
     }
   };
 
+  const handleShare = async () => {
+    if (!interpretation) return;
+
+    const shareData = {
+      title: 'My Dream Interpretation',
+      text: `I just interpreted my dream: "${dreamText.substring(0, 100)}..."\n\nInterpretation: ${interpretation.substring(0, 200)}...`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareData.text}\n\nRead more at: ${shareData.url}`);
+        setIsSharing(true);
+        setTimeout(() => setIsSharing(false), 2000);
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
   const clearHistory = () => {
     if (confirm("Are you sure you want to clear your entire dream journal?")) {
       setHistory([]);
@@ -205,45 +302,46 @@ export default function DreamJournal() {
   );
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#020617] text-slate-100 font-sans selection:bg-sky-500/30">
+    <div className="min-h-screen relative overflow-hidden bg-[#000103] text-slate-100 font-sans selection:bg-purple-500/30">
       {/* Atmospheric Background */}
       <div className="fixed inset-0 z-0">
         <motion.div 
           style={{ x: bgX, y: bgY }}
           animate={{
-            scale: [1, 1.1, 1],
-            opacity: [0.3, 0.5, 0.3]
+            scale: [1, 1.25, 1],
+            opacity: [0.1, 0.25, 0.1]
           }}
           transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-10%] left-[-5%] w-[80%] h-[80%] rounded-full bg-sky-500/10 blur-[140px]"
+          className="absolute top-[-10%] left-[-5%] w-[80%] h-[80%] rounded-full bg-purple-600/10 blur-[180px]"
         />
         <motion.div 
           style={{ x: bg2X, y: bg2Y }}
           animate={{
-            scale: [1.1, 1, 1.1],
-            opacity: [0.2, 0.4, 0.2]
+            scale: [1.25, 1, 1.25],
+            opacity: [0.1, 0.2, 0.1]
           }}
           transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-[-5%] right-[-5%] w-[70%] h-[70%] rounded-full bg-indigo-500/10 blur-[120px]"
+          className="absolute bottom-[-5%] right-[-5%] w-[70%] h-[70%] rounded-full bg-violet-600/10 blur-[160px]"
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(15,23,42,0)_0%,rgba(2,6,23,0.9)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(88,28,135,0.05)_0%,rgba(0,1,3,0.99)_100%)]" />
         
-        {/* Subtle Stars/Dust */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          {[...Array(20)].map((_, i) => (
+        {/* Brighter Sparkly Stars */}
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(80)].map((_, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0 }}
               animate={{ 
-                opacity: [0, 1, 0],
-                scale: [0.5, 1, 0.5]
+                opacity: [0, 0.6, 1, 0.6, 0],
+                scale: [0.4, 1.2, 0.9, 1.2, 0.4],
               }}
               transition={{
-                duration: 3 + Math.random() * 5,
+                duration: 6 + Math.random() * 10,
                 repeat: Infinity,
-                delay: Math.random() * 5
+                delay: Math.random() * 20,
+                ease: "easeInOut"
               }}
-              className="absolute w-1 h-1 bg-white rounded-full"
+              className="absolute w-0.5 h-0.5 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,0.9),0_0_20px_rgba(168,85,247,0.4)]"
               style={{
                 top: `${Math.random() * 100}%`,
                 left: `${Math.random() * 100}%`
@@ -263,18 +361,18 @@ export default function DreamJournal() {
             className="relative inline-block"
           >
             {/* Beaming Glow */}
-            <div className="absolute inset-0 -z-10 bg-sky-400 blur-[100px] opacity-20 scale-[2.5] rounded-full" />
+            <div className="absolute inset-0 -z-10 bg-purple-500 blur-[100px] opacity-20 scale-[2.5] rounded-full" />
             
             <h1 
-              className="text-4xl md:text-6xl font-black tracking-tighter mb-4 px-4 text-white relative"
+              className="text-4xl md:text-7xl font-display font-black tracking-tighter mb-4 px-4 text-white relative leading-tight"
               style={{
-                textShadow: '0 1px 0 #1e293b, 0 2px 0 #0f172a, 0 3px 0 #020617, 0 4px 0 #000, 0 8px 16px rgba(0,0,0,0.5)',
-                filter: 'drop-shadow(0 0 20px rgba(56,189,248,0.3))'
+                textShadow: '0 2px 0 #4c1d95, 0 4px 0 #2e1065, 0 6px 0 #000, 0 8px 0 #000, 0 15px 30px rgba(0,0,0,0.8)',
+                filter: 'drop-shadow(0 0 25px rgba(168,85,247,0.4))'
               }}
             >
               Dream Interpretation Dictionary
             </h1>
-            <p className="text-sky-400/60 text-[10px] md:text-xs uppercase tracking-[0.6em] font-bold">
+            <p className="text-purple-300 text-[10px] md:text-xs uppercase tracking-[0.6em] font-bold">
               Your Subconscious, Deciphered
             </p>
           </motion.div>
@@ -285,59 +383,77 @@ export default function DreamJournal() {
           <motion.div 
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
+            style={{ rotateX, rotateY, perspective: 1000 }}
             transition={{ duration: 1, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="backdrop-blur-2xl bg-slate-900/40 border border-white/10 rounded-[48px] p-6 md:p-10 shadow-2xl shadow-black/50"
+            className="group relative"
           >
-            <div className="relative">
-              <textarea
-                value={dreamText}
-                onChange={(e) => setDreamText(e.target.value)}
-                placeholder="Describe your dream... What did you see? How did you feel?"
-                className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg md:text-xl placeholder:text-slate-600 text-slate-100 resize-none leading-relaxed"
-              />
+            {/* Glistening Border Effect */}
+            <div className="absolute -inset-[1px] rounded-[48px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[1px]" />
+            <motion.div 
+              animate={{
+                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="absolute -inset-[1px] rounded-[48px] bg-[length:200%_auto] bg-gradient-to-r from-purple-500/20 via-white/40 to-purple-500/20 opacity-30"
+              style={{ maskImage: 'linear-gradient(black, black), linear-gradient(black, black)', maskClip: 'content-box, border-box', maskComposite: 'exclude', padding: '1px' }}
+            />
+
+            <div className="relative backdrop-blur-3xl bg-slate-900/60 border border-white/10 rounded-[48px] p-6 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+              {/* Inner Glow */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               
-              <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
-                <div className="flex gap-3">
+              <div className="relative">
+                <textarea
+                  value={dreamText}
+                  onChange={(e) => setDreamText(e.target.value)}
+                  placeholder="Describe your dream... What did you see? How did you feel?"
+                  className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg md:text-xl placeholder:text-slate-400 text-slate-100 resize-none leading-relaxed font-light"
+                />
+                
+                <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
+                  <div className="flex gap-3">
+                    <button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={cn(
+                        "p-5 rounded-full transition-all duration-500 shadow-lg relative overflow-hidden group/btn",
+                        isRecording 
+                          ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
+                          : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-sky-300 border border-white/5"
+                      )}
+                      title={isRecording ? "Stop recording" : "Record your dream"}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                      {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
+                    </button>
+                    
+                    <button
+                      onClick={() => setShowHistory(!showHistory)}
+                      className={cn(
+                        "p-5 rounded-full transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
+                        showHistory ? "text-sky-300 bg-sky-500/10 border-sky-500/20" : "text-slate-300 hover:text-sky-300 hover:bg-slate-700/50"
+                      )}
+                      title="View history"
+                    >
+                      <History size={24} />
+                    </button>
+                  </div>
+
                   <button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={cn(
-                      "p-5 rounded-[2.5rem] transition-all duration-500 shadow-lg",
-                      isRecording 
-                        ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
-                        : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-sky-400 border border-white/5"
-                    )}
-                    title={isRecording ? "Stop recording" : "Record your dream"}
+                    onClick={isEditing ? handleSaveEdit : handleInterpret}
+                    disabled={!dreamText.trim() || isInterpreting}
+                    className="flex items-center gap-4 px-14 py-6 bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:-translate-y-2.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
                   >
-                    {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
-                  </button>
-                  
-                  <button
-                    onClick={() => setShowHistory(!showHistory)}
-                    className={cn(
-                      "p-5 rounded-[2.5rem] transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
-                      showHistory ? "text-sky-400 bg-sky-500/10 border-sky-500/20" : "text-slate-400 hover:text-sky-400 hover:bg-slate-700/50"
-                    )}
-                    title="View history"
-                  >
-                    <History size={24} />
+                    {isInterpreting ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Sparkles size={24} className="text-purple-500" />
+                      </motion.div>
+                    ) : <Sparkles size={24} className="group-hover:animate-pulse text-purple-500" />}
+                    <span className="tracking-tight text-lg uppercase font-black">{isEditing ? "Save Changes" : (isInterpreting ? "Interpreting..." : "Interpret Dream")}</span>
                   </button>
                 </div>
-
-                <button
-                  onClick={handleInterpret}
-                  disabled={!dreamText.trim() || isInterpreting}
-                  className="flex items-center gap-4 px-12 py-5 bg-sky-500 text-white rounded-[3rem] rounded-tl-[1.5rem] rounded-br-[1.5rem] font-black shadow-xl shadow-sky-500/20 hover:shadow-sky-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border border-sky-400/50"
-                >
-                  {isInterpreting ? (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    >
-                      <Sparkles size={22} />
-                    </motion.div>
-                  ) : <Sparkles size={22} className="group-hover:animate-pulse" />}
-                  <span className="tracking-tight">{isInterpreting ? "Interpreting..." : "Interpret Dream"}</span>
-                </button>
               </div>
             </div>
           </motion.div>
@@ -349,81 +465,151 @@ export default function DreamJournal() {
                 key="result"
                 initial={{ opacity: 0, y: 50, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                style={{ rotateX, rotateY, perspective: 1000 }}
                 exit={{ opacity: 0, y: -20, scale: 0.98 }}
                 transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                className="backdrop-blur-2xl bg-slate-900/60 border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl shadow-black/50"
+                className="group relative"
               >
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-xs uppercase tracking-[0.5em] text-sky-400 font-black">
-                    The Interpretation
-                  </h2>
-                  <div className="flex gap-3">
-                    {interpretation && (
+                {/* Glistening Border Effect */}
+                <div className="absolute -inset-[1px] rounded-[48px] bg-gradient-to-r from-transparent via-sky-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[1px]" />
+                <motion.div 
+                  animate={{
+                    backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+                  }}
+                  transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                  className="absolute -inset-[1px] rounded-[48px] bg-[length:200%_auto] bg-gradient-to-r from-sky-500/20 via-white/30 to-sky-500/20 opacity-20"
+                  style={{ maskImage: 'linear-gradient(black, black), linear-gradient(black, black)', maskClip: 'content-box, border-box', maskComposite: 'exclude', padding: '1px' }}
+                />
+
+                <div className="relative backdrop-blur-3xl bg-slate-900/60 border border-white/10 rounded-[48px] p-8 md:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-xs uppercase tracking-[0.5em] text-sky-400 font-black">
+                      The Interpretation
+                    </h2>
+                    <div className="flex gap-3">
                       <button
-                        onClick={handleSpeak}
-                        className={cn(
-                          "flex items-center gap-3 px-8 py-4 rounded-[2.5rem] text-sm font-black transition-all shadow-lg border",
-                          isPlaying 
-                            ? "bg-sky-500 text-white border-sky-400" 
-                            : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
-                        )}
+                        onClick={handleNewDream}
+                        className="flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border bg-purple-600 text-white border-purple-400 hover:bg-purple-500"
                       >
-                        {isPlaying ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                        {isPlaying ? "Stop Reading" : "Read Aloud"}
+                        <Sparkles size={18} />
+                        New Dream
                       </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                  <div className="lg:col-span-7 prose prose-invert prose-sky max-w-none prose-p:leading-relaxed prose-p:text-slate-300 prose-headings:text-white">
-                    {interpretation ? (
-                      <ReactMarkdown>{interpretation}</ReactMarkdown>
-                    ) : (
-                      <div className="flex items-center gap-4 text-sky-400/60 animate-pulse py-8">
-                        <Loader2 className="animate-spin" size={24} />
-                        <span className="text-lg font-light tracking-wide">Deciphering your subconscious...</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="lg:col-span-5">
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.4, duration: 1 }}
-                      className="aspect-square rounded-[3rem] overflow-hidden bg-slate-800/50 border border-white/5 relative group shadow-2xl"
-                    >
-                      {isGeneratingImage ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-sky-400/40 gap-4">
-                          <motion.div
-                            animate={{ 
-                              scale: [1, 1.1, 1],
-                              opacity: [0.4, 0.8, 0.4]
-                            }}
-                            transition={{ duration: 3, repeat: Infinity }}
+                      {interpretation && (
+                        <>
+                          <button
+                            onClick={handleShare}
+                            className={cn(
+                              "flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border",
+                              isSharing 
+                                ? "bg-emerald-500 text-white border-emerald-400" 
+                                : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
+                            )}
                           >
-                            <ImageIcon size={64} strokeWidth={1} />
-                          </motion.div>
-                          <span className="text-[10px] font-black tracking-[0.3em] uppercase">Visualizing...</span>
-                        </div>
-                      ) : currentImageUrl ? (
-                        <motion.img
-                          initial={{ opacity: 0, scale: 1.2 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 1.5, ease: "easeOut" }}
-                          src={currentImageUrl}
-                          alt="Dream visualization"
-                          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                          referrerPolicy="no-referrer"
-                        />
+                            {isSharing ? <Check size={18} /> : <Share2 size={18} />}
+                            {isSharing ? "Copied!" : "Share"}
+                          </button>
+                          <button
+                            onClick={handleSpeak}
+                            className={cn(
+                              "flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border",
+                              isPlaying 
+                                ? "bg-sky-500 text-white border-sky-400" 
+                                : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
+                            )}
+                          >
+                            {isPlaying ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                            {isPlaying ? "Stop Reading" : "Read Aloud"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                    <div className="lg:col-span-7 prose prose-invert prose-sky max-w-none prose-p:leading-relaxed prose-p:text-slate-200 prose-headings:text-white">
+                      {interpretation ? (
+                        <ReactMarkdown>{interpretation}</ReactMarkdown>
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-slate-700">
-                          <ImageIcon size={64} strokeWidth={1} />
+                        <div className="flex items-center gap-4 text-sky-300 animate-pulse py-8">
+                          <Loader2 className="animate-spin" size={24} />
+                          <span className="text-lg font-light tracking-wide">Deciphering your subconscious...</span>
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
-                    </motion.div>
+                    </div>
+
+                    <div className="lg:col-span-5">
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.4, duration: 1 }}
+                        className="aspect-square rounded-[3rem] overflow-hidden bg-slate-800/50 border border-white/5 relative group shadow-2xl"
+                      >
+                        {isGeneratingImage ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center text-sky-400/40 gap-6">
+                            <div className="relative">
+                              <motion.div
+                                animate={{ 
+                                  scale: [1, 1.1, 1],
+                                  opacity: [0.4, 0.8, 0.4]
+                                }}
+                                transition={{ duration: 3, repeat: Infinity }}
+                              >
+                                <ImageIcon size={64} strokeWidth={1} />
+                              </motion.div>
+                              <motion.div 
+                                className="absolute -inset-4 border border-sky-500/20 rounded-full"
+                                animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                              />
+                            </div>
+                            <div className="flex flex-col items-center gap-2">
+                              <span className="text-[10px] font-black tracking-[0.3em] uppercase text-sky-300">Visualizing...</span>
+                              <AnimatePresence mode="wait">
+                                <motion.span 
+                                  key={generationStatus}
+                                  initial={{ opacity: 0, y: 5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -5 }}
+                                  className="text-[9px] text-slate-300 tracking-wider font-medium italic"
+                                >
+                                  {generationStatus}
+                                </motion.span>
+                              </AnimatePresence>
+                            </div>
+                            
+                            {/* Subtle Progress Bar */}
+                            <div className="w-32 h-[2px] bg-slate-800 rounded-full overflow-hidden">
+                              <motion.div 
+                                className="h-full bg-sky-500/40"
+                                animate={{ 
+                                  x: ["-100%", "100%"]
+                                }}
+                                transition={{ 
+                                  duration: 2, 
+                                  repeat: Infinity, 
+                                  ease: "linear" 
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : currentImageUrl ? (
+                          <motion.img
+                            initial={{ opacity: 0, scale: 1.2 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 1.5, ease: "easeOut" }}
+                            src={currentImageUrl}
+                            alt="Dream visualization"
+                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-slate-700">
+                            <ImageIcon size={64} strokeWidth={1} />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                      </motion.div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -437,27 +623,31 @@ export default function DreamJournal() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
+                style={{ rotateX, rotateY, perspective: 1000 }}
                 transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden pt-4"
+                className="group relative pt-4"
               >
-                <div className="backdrop-blur-2xl bg-slate-900/40 border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl">
+                {/* Glistening Border Effect */}
+                <div className="absolute -inset-[1px] rounded-[48px] bg-gradient-to-r from-transparent via-purple-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[1px]" />
+                
+                <div className="relative backdrop-blur-3xl bg-slate-900/40 border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <h2 className="text-2xl font-light text-white">Dream Journal</h2>
                     
                     <div className="flex items-center gap-4">
                       <div className="relative flex-1 md:w-72">
-                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search dreams..."
-                          className="w-full bg-slate-800/50 border border-white/5 rounded-full py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-sky-500/50 transition-all text-slate-100 placeholder:text-slate-600"
+                          className="w-full bg-slate-800/50 border border-white/5 rounded-full py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-sky-500/50 transition-all text-slate-100 placeholder:text-slate-400"
                         />
                         {searchQuery && (
                           <button 
                             onClick={() => setSearchQuery('')}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                           >
                             <X size={16} />
                           </button>
@@ -466,7 +656,7 @@ export default function DreamJournal() {
                       
                       <button 
                         onClick={clearHistory}
-                        className="p-3 text-slate-600 hover:text-red-400 transition-colors bg-slate-800/50 rounded-full border border-white/5"
+                        className="p-3 text-slate-400 hover:text-red-400 transition-colors bg-slate-800/50 rounded-full border border-white/5"
                         title="Clear all"
                       >
                         <Trash2 size={22} />
@@ -476,8 +666,8 @@ export default function DreamJournal() {
                   
                   {filteredHistory.length === 0 ? (
                     <div className="text-center py-20">
-                      <History size={48} className="mx-auto text-slate-800 mb-4" strokeWidth={1} />
-                      <p className="text-slate-500 italic">
+                      <History size={48} className="mx-auto text-slate-700 mb-4" strokeWidth={1} />
+                      <p className="text-slate-400 italic">
                         {searchQuery ? "No dreams match your search." : "Your journal is empty. Start by sharing a dream."}
                       </p>
                     </div>
@@ -492,18 +682,18 @@ export default function DreamJournal() {
                           className="group bg-slate-800/30 border border-white/5 rounded-[32px] p-6 hover:bg-slate-800/50 transition-all duration-500"
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <span className="text-[10px] uppercase tracking-[0.3em] text-sky-500/60 font-bold">
+                            <span className="text-[10px] uppercase tracking-[0.3em] text-sky-400 font-bold">
                               {dream.date}
                             </span>
                             <button 
                               onClick={() => deleteEntry(dream.id)}
-                              className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-400 transition-all bg-slate-900/50 rounded-full"
+                              className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-400 transition-all bg-slate-900/50 rounded-full"
                               title="Delete entry"
                             >
                               <Trash2 size={14} />
                             </button>
                           </div>
-                          <p className="text-slate-300 text-sm line-clamp-3 mb-6 leading-relaxed">
+                          <p className="text-slate-200 text-sm line-clamp-3 mb-6 leading-relaxed">
                             {dream.text}
                           </p>
                           <button 
@@ -514,9 +704,23 @@ export default function DreamJournal() {
                               setShowHistory(false);
                               window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
-                            className="w-full py-3 bg-slate-900/50 text-sky-400 rounded-2xl text-xs font-black hover:bg-sky-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
+                            className="w-full py-3 bg-slate-900/50 text-sky-400 rounded-full text-xs font-black hover:bg-sky-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
                           >
                             Revisit <Sparkles size={14} />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setDreamText(dream.text);
+                              setInterpretation(dream.interpretation || null);
+                              setCurrentImageUrl(dream.imageUrl || null);
+                              setIsEditing(true);
+                              setEditingDreamId(dream.id);
+                              setShowHistory(false);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="w-full py-3 mt-2 bg-slate-900/50 text-purple-400 rounded-full text-xs font-black hover:bg-purple-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
+                          >
+                            Edit <Sparkles size={14} />
                           </button>
                         </motion.div>
                       ))}
@@ -528,7 +732,7 @@ export default function DreamJournal() {
           </AnimatePresence>
         </main>
 
-        <footer className="mt-24 text-center text-slate-600 text-[10px] tracking-[0.4em] uppercase pb-12 font-bold">
+        <footer className="mt-24 text-center text-slate-400 text-[10px] tracking-[0.4em] uppercase pb-12 font-bold">
           &copy; {new Date().getFullYear()} Dream Interpretation Dictionary • dreaminterpretation-dictionary.com
         </footer>
       </div>

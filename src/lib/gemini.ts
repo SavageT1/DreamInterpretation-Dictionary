@@ -79,12 +79,40 @@ export async function generateDreamImage(dreamText: string) {
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
   
   const ai = new GoogleGenAI({ apiKey });
+
+  // Step 1: Generate a highly descriptive visual prompt using a text model
+  const promptResponse = await ai.models.generateContent({
+    model: "gemini-3.1-flash-lite-preview",
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: `You are an expert prompt engineer for AI image generation. 
+        Analyze the following dream description and create a detailed, artistic, and atmospheric prompt for a surreal digital painting.
+        
+        Requirements:
+        1. Identify the core symbols and dominant emotions (e.g., wonder, fear, serenity).
+        2. Describe a specific artistic style: "A high-detail surrealist digital painting with ethereal lighting and soft, fluid textures."
+        3. Specify lighting: Use terms like "bioluminescent," "volumetric fog," "golden hour," or "celestial glow."
+        4. Focus on composition: Describe the arrangement of elements to create a sense of vastness or intimacy.
+        5. DO NOT include any text, words, or labels in the prompt.
+        6. Keep the final prompt under 150 words.
+        
+        Dream: ${dreamText}
+        
+        Visual Prompt:` }]
+      }
+    ]
+  });
+
+  const visualPrompt = promptResponse.text || dreamText;
+
+  // Step 2: Generate the image using the refined prompt
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-image",
     contents: [
       {
         role: "user",
-        parts: [{ text: `Create a surreal, ethereal, and artistic digital painting representing this dream. The style should be dreamy, soft, and meditative, with a focus on the key symbols and emotions mentioned. Avoid text or realistic photography. \n\nDream: ${dreamText}` }]
+        parts: [{ text: visualPrompt }]
       }
     ],
     config: {
