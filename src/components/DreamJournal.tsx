@@ -4,6 +4,9 @@ import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, Vol
 import ReactMarkdown from 'react-markdown';
 import { interpretDream, transcribeAudio, speakInterpretation, generateDreamImage } from '../lib/gemini';
 import { cn } from '../lib/utils';
+import { auth, db, googleProvider } from '../lib/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 interface Dream {
   id: string;
@@ -14,6 +17,8 @@ interface Dream {
 }
 
 export default function DreamJournal() {
+  const [user, setUser] = React.useState<User | null>(null);
+  const [pendingDream, setPendingDream] = React.useState<Dream | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editingDreamId, setEditingDreamId] = React.useState<string | null>(null);
   const [dreamText, setDreamText] = React.useState('');
@@ -24,6 +29,37 @@ export default function DreamJournal() {
   const [currentImageUrl, setCurrentImageUrl] = React.useState<string | null>(null);
   const [history, setHistory] = React.useState<Dream[]>([]);
   const [showHistory, setShowHistory] = React.useState(false);
+  const [theme, setTheme] = React.useState({
+    bg: '#000103',
+    text: '#f1f5f9',
+    accent: '#a855f7'
+  });
+  const [showThemeSettings, setShowThemeSettings] = React.useState(false);
+
+  // Auth listener
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load theme from localStorage
+  React.useEffect(() => {
+    const savedTheme = localStorage.getItem('dream_theme');
+    if (savedTheme) {
+      setTheme(JSON.parse(savedTheme));
+    }
+  }, []);
+
+  // Save theme to localStorage and update CSS variables
+  React.useEffect(() => {
+    localStorage.setItem('dream_theme', JSON.stringify(theme));
+    document.documentElement.style.setProperty('--bg-color', theme.bg);
+    document.documentElement.style.setProperty('--text-color', theme.text);
+    document.documentElement.style.setProperty('--accent-color', theme.accent);
+  }, [theme]);
+
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
@@ -60,17 +96,23 @@ export default function DreamJournal() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [mouseX, mouseY]);
 
-  // Load history from localStorage
+  // Load history from Firestore
   React.useEffect(() => {
-    const saved = localStorage.getItem('dream_history');
-    if (saved) {
-      try {
-        setHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse history", e);
-      }
+    if (user) {
+      const loadHistory = async () => {
+        const q = query(collection(db, 'dreams'), where('userId', '==', user.uid));
+        const querySnapshot = await getDocs(q);
+        const dreams: Dream[] = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Dream));
+        setHistory(dreams);
+      };
+      loadHistory();
+    } else {
+      setHistory([]);
     }
-  }, []);
+  }, [user]);
 
   // Save history to localStorage
   React.useEffect(() => {
@@ -194,6 +236,7 @@ export default function DreamJournal() {
     setIsGeneratingImage(true);
     setInterpretation(null);
     setCurrentImageUrl(null);
+    setPendingDream(null);
     
     try {
       // Run interpretation and image generation in parallel
@@ -212,13 +255,29 @@ export default function DreamJournal() {
         interpretation: interpretationResult,
         imageUrl: imageUrlResult || undefined
       };
-      setHistory([newDream, ...history]);
+      setPendingDream(newDream);
     } catch (error) {
       console.error("Interpretation or image generation failed", error);
       setInterpretation("The dream realm is currently clouded. Please try again in a moment.");
     } finally {
       setIsInterpreting(false);
       setIsGeneratingImage(false);
+    }
+  };
+
+  const saveToVault = async () => {
+    if (!pendingDream || !user) return;
+    
+    try {
+      const docRef = await addDoc(collection(db, 'dreams'), {
+        ...pendingDream,
+        userId: user.uid
+      });
+      setHistory([{ ...pendingDream, id: docRef.id }, ...history]);
+      setPendingDream(null);
+      handleNewDream();
+    } catch (error) {
+      console.error("Failed to save dream to Firestore", error);
     }
   };
 
@@ -302,7 +361,7 @@ export default function DreamJournal() {
   );
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#000103] text-slate-100 font-sans selection:bg-purple-500/30">
+    <div className="min-h-screen relative overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)] font-sans selection:bg-[var(--accent-color)]/30">
       {/* Atmospheric Background */}
       <div className="fixed inset-0 z-0">
         <motion.div 
@@ -351,9 +410,45 @@ export default function DreamJournal() {
         </div>
       </div>
 
+      {/* Theme Settings Panel */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={() => setShowThemeSettings(!showThemeSettings)}
+          className="p-3 bg-slate-800 rounded-full text-slate-300 hover:text-white transition-all shadow-lg border border-white/10"
+        >
+          <Sparkles size={20} />
+        </button>
+        {showThemeSettings && (
+          <div className="absolute bottom-16 right-0 w-64 p-6 bg-slate-900/60 border border-white/10 rounded-3xl shadow-2xl backdrop-blur-2xl">
+            <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Theme</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Background</label>
+                <input type="color" value={theme.bg} onChange={(e) => setTheme({...theme, bg: e.target.value})} className="w-full h-8 rounded cursor-pointer" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Text</label>
+                <input type="color" value={theme.text} onChange={(e) => setTheme({...theme, text: e.target.value})} className="w-full h-8 rounded cursor-pointer" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Accent</label>
+                <input type="color" value={theme.accent} onChange={(e) => setTheme({...theme, accent: e.target.value})} className="w-full h-8 rounded cursor-pointer" />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 md:py-20">
         <header className="text-center mb-16 relative">
+          <div className="absolute top-0 right-0">
+            {user ? (
+              <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white">Sign Out</button>
+            ) : (
+              <button onClick={() => signInWithPopup(auth, googleProvider)} className="text-xs text-slate-400 hover:text-white">Sign In</button>
+            )}
+          </div>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -385,7 +480,7 @@ export default function DreamJournal() {
             animate={{ opacity: 1, y: 0 }}
             style={{ rotateX, rotateY, perspective: 1000 }}
             transition={{ duration: 1, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="group relative"
+            className="group relative backdrop-blur-md bg-white/5 border border-white/10 rounded-[48px] p-8"
           >
             {/* Glistening Border Effect */}
             <div className="absolute -inset-[1px] rounded-[48px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[1px]" />
@@ -412,7 +507,7 @@ export default function DreamJournal() {
                 
                 <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
                   <div className="flex gap-3">
-                    <button
+                    <motion.button
                       onClick={isRecording ? stopRecording : startRecording}
                       className={cn(
                         "p-5 rounded-full transition-all duration-500 shadow-lg relative overflow-hidden group/btn",
@@ -420,28 +515,34 @@ export default function DreamJournal() {
                           ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
                           : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-sky-300 border border-white/5"
                       )}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       title={isRecording ? "Stop recording" : "Record your dream"}
                     >
                       <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                       {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
-                    </button>
+                    </motion.button>
                     
-                    <button
+                    <motion.button
                       onClick={() => setShowHistory(!showHistory)}
                       className={cn(
                         "p-5 rounded-full transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
                         showHistory ? "text-sky-300 bg-sky-500/10 border-sky-500/20" : "text-slate-300 hover:text-sky-300 hover:bg-slate-700/50"
                       )}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       title="View history"
                     >
                       <History size={24} />
-                    </button>
+                    </motion.button>
                   </div>
 
-                  <button
+                  <motion.button
                     onClick={isEditing ? handleSaveEdit : handleInterpret}
                     disabled={!dreamText.trim() || isInterpreting}
-                    className="flex items-center gap-4 px-14 py-6 bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:-translate-y-2.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
+                    className="flex items-center gap-4 px-14 py-6 bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
+                    whileHover={{ y: -10 }}
+                    whileTap={{ scale: 0.95 }}
                   >
                     {isInterpreting ? (
                       <motion.div
@@ -452,7 +553,7 @@ export default function DreamJournal() {
                       </motion.div>
                     ) : <Sparkles size={24} className="group-hover:animate-pulse text-purple-500" />}
                     <span className="tracking-tight text-lg uppercase font-black">{isEditing ? "Save Changes" : (isInterpreting ? "Interpreting..." : "Interpret Dream")}</span>
-                  </button>
+                    </motion.button>
                 </div>
               </div>
             </div>
@@ -487,6 +588,15 @@ export default function DreamJournal() {
                       The Interpretation
                     </h2>
                     <div className="flex gap-3">
+                      {pendingDream && (
+                        <button
+                          onClick={saveToVault}
+                          className="flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border bg-emerald-600 text-white border-emerald-400 hover:bg-emerald-500"
+                        >
+                          <Check size={18} />
+                          Save to Vault
+                        </button>
+                      )}
                       <button
                         onClick={handleNewDream}
                         className="flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border bg-purple-600 text-white border-purple-400 hover:bg-purple-500"
@@ -696,8 +806,10 @@ export default function DreamJournal() {
                           <p className="text-slate-200 text-sm line-clamp-3 mb-6 leading-relaxed">
                             {dream.text}
                           </p>
-                          <button 
-                            onClick={() => {
+                        <motion.button 
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
                               setDreamText(dream.text);
                               setInterpretation(dream.interpretation || null);
                               setCurrentImageUrl(dream.imageUrl || null);
@@ -707,8 +819,10 @@ export default function DreamJournal() {
                             className="w-full py-3 bg-slate-900/50 text-sky-400 rounded-full text-xs font-black hover:bg-sky-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
                           >
                             Revisit <Sparkles size={14} />
-                          </button>
-                          <button 
+                          </motion.button>
+                          <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => {
                               setDreamText(dream.text);
                               setInterpretation(dream.interpretation || null);
@@ -721,7 +835,7 @@ export default function DreamJournal() {
                             className="w-full py-3 mt-2 bg-slate-900/50 text-purple-400 rounded-full text-xs font-black hover:bg-purple-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
                           >
                             Edit <Sparkles size={14} />
-                          </button>
+                          </motion.button>
                         </motion.div>
                       ))}
                     </div>

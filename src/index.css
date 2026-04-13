@@ -8,7 +8,12 @@
 }
 
 @layer base {
+  :root {
+    --bg-color: #000103;
+    --text-color: #f1f5f9;
+    --accent-color: #a855f7;
+  }
   body {
-    @apply antialiased;
+    @apply antialiased bg-[var(--bg-color)] text-[var(--text-color)];
   }
 }
