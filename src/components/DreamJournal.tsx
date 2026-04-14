@@ -498,6 +498,20 @@ export default function DreamJournal() {
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               
               <div className="relative">
+                {history.length > 0 && !showHistory && !interpretation && (
+                  <button
+                    onClick={() => {
+                      const lastDream = history[0];
+                      setDreamText(lastDream.text);
+                      setInterpretation(lastDream.interpretation || null);
+                      setCurrentImageUrl(lastDream.imageUrl || null);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="mb-6 flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+                  >
+                    <History size={14} /> Revisit Last Dream
+                  </button>
+                )}
                 <textarea
                   value={dreamText}
                   onChange={(e) => setDreamText(e.target.value)}
