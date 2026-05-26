@@ -19,7 +19,7 @@ admin.initializeApp({
   credential: admin.credential.applicationDefault(),
   projectId: firebaseConfig.projectId
 });
-const db = getFirestore(firebaseConfig.firestoreDatabaseId);
+const db = getFirestore(admin.app(), firebaseConfig.firestoreDatabaseId);
 
 let ai: GoogleGenAI | null = null;
 function getAI() {
@@ -72,11 +72,10 @@ async function startServer() {
       });
       const visualPrompt = promptResponse.text || dreamText;
 
-      // 2. Generate Image using Flash Image (or Imagen models if needed, default gemini-2.5-flash-image)
+      // 2. Generate Image using a standard model
       const response = await getAI().models.generateContent({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-3.5-flash",
         contents: [{ role: "user", parts: [{ text: visualPrompt }] }],
-        config: { imageConfig: { aspectRatio: "1:1" } },
       });
 
       const part = response.candidates?.[0]?.content?.parts?.[0];
@@ -148,6 +147,7 @@ async function startServer() {
           temperature: 0.7,
         }
       });
+      console.log("Gemini interpret successful");
 
       // 4. Increment count (gracefully ignore database write failures)
       if (dbAccessSuccessful && userRef) {

@@ -687,21 +687,21 @@ export default function DreamJournal() {
                     <h2 className="text-xs uppercase tracking-[0.5em] text-sky-400 font-black">
                       The Interpretation
                     </h2>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-2">
                       {pendingDream && (
                         <button
                           onClick={saveToVault}
-                          className="flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border bg-emerald-600 text-white border-emerald-400 hover:bg-emerald-500"
+                          className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border bg-slate-800/50 text-emerald-400 border-emerald-500/30 hover:bg-emerald-900/30"
                         >
-                          <Check size={18} />
-                          Save to Vault
+                          <Check size={14} />
+                          Save
                         </button>
                       )}
                       <button
                         onClick={handleNewDream}
-                        className="flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border bg-purple-600 text-white border-purple-400 hover:bg-purple-500"
+                        className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border bg-slate-800/50 text-purple-400 border-purple-500/30 hover:bg-purple-900/30"
                       >
-                        <Sparkles size={18} />
+                        <Sparkles size={14} />
                         New Dream
                       </button>
                       {interpretation && (
@@ -709,38 +709,38 @@ export default function DreamJournal() {
                           <button
                             onClick={handleCopy}
                             className={cn(
-                              "flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border",
+                              "flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border",
                               isCopied
-                                ? "bg-emerald-500 text-white border-emerald-400" 
+                                ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30" 
                                 : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
                             )}
                           >
-                            {isCopied ? <Check size={18} /> : <Clipboard size={18} />}
-                            {isCopied ? "Copied!" : "Copy"}
+                            {isCopied ? <Check size={14} /> : <Clipboard size={14} />}
+                            {isCopied ? "Copied" : "Copy"}
                           </button>
                           <button
                             onClick={handleShare}
                             className={cn(
-                              "flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border",
+                              "flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border",
                               isSharing 
-                                ? "bg-emerald-500 text-white border-emerald-400" 
+                                ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30" 
                                 : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
                             )}
                           >
-                            {isSharing ? <Check size={18} /> : <Share2 size={18} />}
-                            {isSharing ? "Copied!" : "Share"}
+                            {isSharing ? <Check size={14} /> : <Share2 size={14} />}
+                            {isSharing ? "Done" : "Share"}
                           </button>
                           <button
                             onClick={handleSpeak}
                             className={cn(
-                              "flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border",
+                              "flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border",
                               isPlaying 
-                                ? "bg-sky-500 text-white border-sky-400" 
+                                ? "bg-sky-900/30 text-sky-400 border-sky-500/30" 
                                 : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
                             )}
                           >
-                            {isPlaying ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                            {isPlaying ? "Stop Reading" : "Read Aloud"}
+                            {isPlaying ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                            {isPlaying ? "Stop" : "Read Aloud"}
                           </button>
                         </>
                       )}
