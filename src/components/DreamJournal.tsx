@@ -1,11 +1,12 @@
-import * as React from 'react'import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue } from 'motion/react';
-import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, VolumeX, Search, X, Image as ImageIcon, Loader2, Share2, Check } from 'lucide-react';
+import * as React from 'react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue } from 'motion/react';
+import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, VolumeX, Search, X, Image as ImageIcon, Loader2, Share2, Check, Settings, Clipboard } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { interpretDream, transcribeAudio, speakInterpretation, generateDreamImage } from '../lib/gemini';
 import { cn } from '../lib/utils';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 
 interface Dream {
   id: string;
@@ -17,22 +18,25 @@ interface Dream {
 
 export default function DreamJournal() {
   const [user, setUser] = React.useState<User | null>(null);
-  const [pendingDream, setPendingDream] = React.useSta
+  const [pendingDream, setPendingDream] = React.useState<Dream | null>(null);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editingDreamId, setEditingDreamId] = React.useState<string | null>(null);
+  const [dreamText, setDreamText] = React.useState('');
+  const [isRecording, setIsRecording] = React.useState(false);
+  const [isInterpreting, setIsInterpreting] = React.useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = React.useState(false);
   const [interpretation, setInterpretation] = React.useState<string | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = React.useState<string | null>(null);
   const [history, setHistory] = React.useState<Dream[]>([]);
   const [showHistory, setShowHistory] = React.useState(false);
-  const [theme, setTheme] = React.useState({
-    bg: '#000103',
-    text: '#f1f5f9',
-    accent: '#a855f7'
-  });
-  const [showThemeSettings, setShowThemeSettings] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
+  const [showFocusPanel, setShowFocusPanel] = React.useState(false);
+  const [dreamFocus, setDreamFocus] = React.useState('General');
+  const [dreamTone, setDreamTone] = React.useState('Comforting');
 
   // Auth listener
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
     });
     return () => unsubscribe();
@@ -40,23 +44,14 @@ export default function DreamJournal() {
 
   // Load theme from localStorage
   React.useEffect(() => {
-    const savedTheme = localStorage.getItem('dream_theme');
-    if (savedTheme) {
-      setTheme(JSON.parse(savedTheme));
-    }
+    localStorage.removeItem('dream_theme');
   }, []);
 
-  // Save theme to localStorage and update CSS variables
-  React.useEffect(() => {
-    localStorage.setItem('dream_theme', JSON.stringify(theme));
-    document.documentElement.style.setProperty('--bg-color', theme.bg);
-    document.documentElement.style.setProperty('--text-color', theme.text);
-    document.documentElement.style.setProperty('--accent-color', theme.accent);
-  }, [theme]);
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
+  const [isCopied, setIsCopied] = React.useState(false);
   const [generationStatus, setGenerationStatus] = React.useState('Analyzing Symbols...');
   const [audioContext, setAudioContext] = React.useState<AudioContext | null>(null);
   const [audioBufferSource, setAudioBufferSource] = React.useState<AudioBufferSourceNode | null>(null);
@@ -235,8 +230,11 @@ export default function DreamJournal() {
     try {
       // Run interpretation and image generation in parallel
       const [interpretationResult, imageUrlResult] = await Promise.all([
-        interpretDream(dreamText),
-        generateDreamImage(dreamText)
+        interpretDream(dreamText, dreamFocus, dreamTone),
+        generateDreamImage(dreamText).catch(err => {
+          console.warn("Dream image generation failed or quota exceeded:", err);
+          return null; // Return null to gracefully allow text interpretation to succeed
+        })
       ]);
 
       setInterpretation(interpretationResult);
@@ -314,6 +312,17 @@ export default function DreamJournal() {
     } catch (error) {
       console.error("TTS failed", error);
       setIsPlaying(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!interpretation) return;
+    try {
+      await navigator.clipboard.writeText(interpretation);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error('Error copying:', error);
     }
   };
 
@@ -404,30 +413,53 @@ export default function DreamJournal() {
         </div>
       </div>
 
-      {/* Theme Settings Panel */}
+      {/* Dream Focus Panel */}
       <div className="fixed bottom-6 right-6 z-50">
         <button
-          onClick={() => setShowThemeSettings(!showThemeSettings)}
-          className="p-3 bg-slate-800 rounded-full text-slate-300 hover:text-white transition-all shadow-lg border border-white/10"
+          onClick={() => setShowFocusPanel(!showFocusPanel)}
+          className={cn(
+            "p-3 rounded-full transition-all duration-500 border border-white/10 shadow-lg",
+            showFocusPanel ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-300 hover:text-white"
+          )}
         >
           <Sparkles size={20} />
         </button>
-        {showThemeSettings && (
-          <div className="absolute bottom-16 right-0 w-64 p-6 bg-slate-900/60 border border-white/10 rounded-3xl shadow-2xl backdrop-blur-2xl">
-            <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Theme</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Background</label>
-                <input type="color" value={theme.bg} onChange={(e) => setTheme({...theme, bg: e.target.value})} className="w-full h-8 rounded cursor-pointer" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Text</label>
-                <input type="color" value={theme.text} onChange={(e) => setTheme({...theme, text: e.target.value})} className="w-full h-8 rounded cursor-pointer" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Accent</label>
-                <input type="color" value={theme.accent} onChange={(e) => setTheme({...theme, accent: e.target.value})} className="w-full h-8 rounded cursor-pointer" />
-              </div>
+        {showFocusPanel && (
+          <div className="absolute bottom-16 right-0 w-64 p-6 bg-slate-900/80 border border-white/10 rounded-3xl shadow-2xl backdrop-blur-2xl">
+            <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Dream Focus</h3>
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {['General', 'Love', 'Work', 'Family'].map((focus) => (
+                <button
+                  key={focus}
+                  onClick={() => setDreamFocus(focus)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-xs font-medium transition-all",
+                    dreamFocus === focus 
+                      ? "bg-purple-600 text-white" 
+                      : "bg-slate-800/50 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  )}
+                >
+                  {focus}
+                </button>
+              ))}
+            </div>
+            
+            <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Interpretation Tone</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {['Comforting', 'Analytical', 'Spiritual', 'Direct'].map((tone) => (
+                <button
+                  key={tone}
+                  onClick={() => setDreamTone(tone)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-xs font-medium transition-all",
+                    dreamTone === tone 
+                      ? "bg-purple-600 text-white" 
+                      : "bg-slate-800/50 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  )}
+                >
+                  {tone}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -435,14 +467,18 @@ export default function DreamJournal() {
 
       {/* Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 md:py-20">
-        <header className="text-center mb-16 relative">
-          <div className="absolute top-0 right-0">
+        <header className="mb-16 relative">
+          <div className="flex justify-end items-center gap-4 p-4">
+            <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-white p-2">
+                <Settings size={20} />
+            </button>
             {user ? (
-              <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white">Sign Out</button>
+              <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign Out</button>
             ) : (
-              <button onClick={() => signInWithPopup(auth, googleProvider)} className="text-xs text-slate-400 hover:text-white">Sign In</button>
+              <button onClick={() => signInWithPopup(auth, googleProvider)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign In</button>
             )}
           </div>
+          <div className="text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -462,10 +498,31 @@ export default function DreamJournal() {
               Dream Interpretation Dictionary
             </h1>
             <p className="text-purple-300 text-[10px] md:text-xs uppercase tracking-[0.6em] font-bold">
-              Your Subconscious, Deciphered
+              Find the Meaning to what you're Dreaming
             </p>
           </motion.div>
+          </div>
         </header>
+
+        {showSettings && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+                <div className="bg-slate-900 border border-white/10 rounded-3xl p-8 max-w-sm w-full">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-white">Settings</h2>
+                        <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                    </div>
+                    <div className="space-y-4">
+                        <label className="flex items-center justify-between text-slate-300">
+                            Enable Notifications
+                            <input type="checkbox" className="accent-purple-600" defaultChecked />
+                        </label>
+                        <button className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-500">
+                           Manage Subscription
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         <main className="space-y-12">
           {/* Input Section */}
@@ -492,77 +549,112 @@ export default function DreamJournal() {
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               
               <div className="relative">
-                {history.length > 0 && !showHistory && !interpretation && (
-                  <button
-                    onClick={() => {
-                      const lastDream = history[0];
-                      setDreamText(lastDream.text);
-                      setInterpretation(lastDream.interpretation || null);
-                      setCurrentImageUrl(lastDream.imageUrl || null);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="mb-6 flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300 transition-colors"
-                  >
-                    <History size={14} /> Revisit Last Dream
-                  </button>
-                )}
-                <textarea
-                  value={dreamText}
-                  onChange={(e) => setDreamText(e.target.value)}
-                  placeholder="Describe your dream... What did you see? How did you feel?"
-                  className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg md:text-xl placeholder:text-slate-400 text-slate-100 resize-none leading-relaxed font-light"
-                />
-                
-                <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
-                  <div className="flex gap-3">
+                {!user ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <div className="relative mb-6">
+                      <div className="absolute inset-0 bg-purple-500 blur-2xl opacity-20 scale-[2.5] rounded-full" />
+                      <Sparkles className="w-12 h-12 text-purple-400 relative" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2 leading-tight">Step into the Subconscious</h2>
+                    <p className="text-slate-400 text-sm max-w-sm mb-8 leading-relaxed">
+                      Sign in to interpret your dreams, visualize them with advanced AI, and securely store your insights in the Dream Vault.
+                    </p>
                     <motion.button
-                      onClick={isRecording ? stopRecording : startRecording}
-                      className={cn(
-                        "p-5 rounded-full transition-all duration-500 shadow-lg relative overflow-hidden group/btn",
-                        isRecording 
-                          ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
-                          : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-sky-300 border border-white/5"
-                      )}
-                      whileHover={{ scale: 1.05 }}
+                      onClick={() => signInWithPopup(auth, googleProvider)}
+                      className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full font-bold shadow-[0_15px_30px_rgba(147,51,234,0.3)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.4)] transition-all cursor-pointer border border-purple-400/20 active:scale-95"
+                      whileHover={{ scale: 1.05, y: -2 }}
                       whileTap={{ scale: 0.95 }}
-                      title={isRecording ? "Stop recording" : "Record your dream"}
                     >
-                      <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                      {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
-                    </motion.button>
-                    
-                    <motion.button
-                      onClick={() => setShowHistory(!showHistory)}
-                      className={cn(
-                        "p-5 rounded-full transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
-                        showHistory ? "text-sky-300 bg-sky-500/10 border-sky-500/20" : "text-slate-300 hover:text-sky-300 hover:bg-slate-700/50"
-                      )}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      title="View history"
-                    >
-                      <History size={24} />
+                      <svg className="w-5 h-5 text-current fill-current" viewBox="0 0 24 24">
+                        <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.555 0-6.44-2.885-6.44-6.44s2.885-6.44 6.44-6.44c1.633 0 3.12.608 4.267 1.633l3.23-3.23C19.347 .93 15.99 0 12.24 0 5.48 0 0 5.48 0 12.24s5.48 12.24 12.24 12.24c6.12 0 11.56-4.32 11.56-12.24 0-.82-.08-1.5-.2-1.955H12.24z" />
+                      </svg>
+                      Continue with Google
                     </motion.button>
                   </div>
-
-                  <motion.button
-                    onClick={isEditing ? handleSaveEdit : handleInterpret}
-                    disabled={!dreamText.trim() || isInterpreting}
-                    className="flex items-center gap-4 px-14 py-6 bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
-                    whileHover={{ y: -10 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {isInterpreting ? (
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                ) : (
+                  <>
+                    {history.length > 0 && !showHistory && !interpretation && (
+                      <button
+                        onClick={() => {
+                          const lastDream = history[0];
+                          setDreamText(lastDream.text);
+                          setInterpretation(lastDream.interpretation || null);
+                          setCurrentImageUrl(lastDream.imageUrl || null);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="mb-6 flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300 transition-colors"
                       >
-                        <Sparkles size={24} className="text-purple-500" />
-                      </motion.div>
-                    ) : <Sparkles size={24} className="group-hover:animate-pulse text-purple-500" />}
-                    <span className="tracking-tight text-lg uppercase font-black">{isEditing ? "Save Changes" : (isInterpreting ? "Interpreting..." : "Interpret Dream")}</span>
-                    </motion.button>
-                </div>
+                        <History size={14} /> Revisit Last Dream
+                      </button>
+                    )}
+                    <textarea
+                      value={dreamText}
+                      onChange={(e) => setDreamText(e.target.value)}
+                      placeholder="Describe your dream... What did you see? How did you feel?"
+                      className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg md:text-xl placeholder:text-slate-400 text-slate-100 resize-none leading-relaxed font-light"
+                    />
+                    <p className="mt-2 text-[11px] text-slate-500 italic max-w-lg">
+                      Patterns over time reveal the subconscious. Secure your insights in the 
+                      <button 
+                        onClick={() => setShowHistory(true)}
+                        className="text-purple-400 hover:text-purple-300 font-bold ml-1 transition-colors"
+                      >
+                        Dream Vault
+                      </button> to track your inner journey and personal growth.
+                    </p>
+                    
+                    <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-6 border-t border-white/5 gap-4">
+                      <div className="flex gap-3">
+                        <motion.button
+                          onClick={isRecording ? stopRecording : startRecording}
+                          className={cn(
+                            "p-4 rounded-full transition-all duration-500 shadow-lg relative overflow-hidden group/btn",
+                            isRecording 
+                              ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
+                              : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-sky-300 border border-white/5"
+                          )}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          title={isRecording ? "Stop recording" : "Record your dream"}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                          {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+                        </motion.button>
+                        
+                        <motion.button
+                          onClick={() => setShowHistory(!showHistory)}
+                          className={cn(
+                            "p-4 rounded-full transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
+                            showHistory ? "text-sky-300 bg-sky-500/10 border-sky-500/20" : "text-slate-300 hover:text-sky-300 hover:bg-slate-700/50"
+                          )}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          title="View history"
+                        >
+                          <History size={20} />
+                        </motion.button>
+                      </div>
+
+                      <motion.button
+                        onClick={isEditing ? handleSaveEdit : handleInterpret}
+                        disabled={!dreamText.trim() || isInterpreting}
+                        className="flex items-center justify-center gap-3 px-8 py-4 w-full sm:w-auto bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
+                        whileHover={{ y: -5 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {isInterpreting ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          >
+                            <Sparkles size={20} className="text-purple-500" />
+                          </motion.div>
+                        ) : <Sparkles size={20} className="group-hover:animate-pulse text-purple-500" />}
+                        <span className="tracking-tight text-md uppercase font-black">{isEditing ? "Save Changes" : (isInterpreting ? "Interpreting..." : "Interpret Dream")}</span>
+                      </motion.button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
@@ -614,6 +706,18 @@ export default function DreamJournal() {
                       </button>
                       {interpretation && (
                         <>
+                          <button
+                            onClick={handleCopy}
+                            className={cn(
+                              "flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black transition-all shadow-lg border",
+                              isCopied
+                                ? "bg-emerald-500 text-white border-emerald-400" 
+                                : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
+                            )}
+                          >
+                            {isCopied ? <Check size={18} /> : <Clipboard size={18} />}
+                            {isCopied ? "Copied!" : "Copy"}
+                          </button>
                           <button
                             onClick={handleShare}
                             className={cn(
@@ -826,7 +930,7 @@ export default function DreamJournal() {
                             }}
                             className="w-full py-3 bg-slate-900/50 text-sky-400 rounded-full text-xs font-black hover:bg-sky-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
                           >
-                            Revisit <Sparkles size={14} />
+                            <History size={14} /> Revisit
                           </motion.button>
                           <motion.button 
                             whileHover={{ scale: 1.05 }}
@@ -841,489 +945,23 @@ export default function DreamJournal() {
                               window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
                             className="w-full py-3 mt-2 bg-slate-900/50 text-purple-400 rounded-full text-xs font-black hover:bg-purple-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
-                          import * as React from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue } from 'motion/react';
-import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, VolumeX, Search, Loader2, Share2, Check } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import { interpretDream, transcribeAudio, speakInterpretation, generateDreamImage } from '../lib/gemini';
-import { auth, db, analytics, googleProvider } from '../lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, orderBy } from 'firebase/firestore';
-import { logEvent } from 'firebase/analytics';
-
-interface Dream {
-  id: string;
-  date: string;
-  text: string;
-  interpretation?: string;
-  imageUrl: string;
-}
-
-export default function DreamJournal() {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [pendingDream, setPendingDream] = React.useState<Dream | null>(null);
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editingDreamId, setEditingDreamId] = React.useState<string | null>(null);
-  const [dreamText, setDreamText] = React.useState('');
-  const [isRecording, setIsRecording] = React.useState(false);
-  const [isInterpreting, setIsInterpreting] = React.useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = React.useState(false);
-  const [interpretation, setInterpretation] = React.useState<string | null>(null);
-  const [currentImageUrl, setCurrentImageUrl] = React.useState<string | null>(null);
-  const [history, setHistory] = React.useState<Dream[]>([]);
-  const [showHistory, setShowHistory] = React.useState(false);
-  const [theme, setTheme] = React.useState({
-    bg: '#000103',
-    text: '#f1f5f9',
-    accent: '#a85f7f',
-  });
-  const [showThemeSettings, setShowThemeSettings] = React.useState(false);
-
-  // Monitor authentication state
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        logEvent(analytics, 'user_authenticated', {
-          uid: currentUser.uid,
-          email: currentUser.email,
-        });
-        // Load user's dreams when they sign in
-        loadUserDreams();
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Load user's dreams from Firestore
-  const loadUserDreams = async () => {
-    if (!user) return;
-    try {
-      const q = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid),
-        orderBy('timestamp', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      const dreams: Dream[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        date: doc.data().date || new Date().toLocaleDateString(),
-        text: doc.data().text,
-        interpretation: doc.data().interpretation,
-        imageUrl: doc.data().imageUrl,
-      }));
-      setHistory(dreams);
-    } catch (error) {
-      console.error('Error loading dreams:', error);
-    }
-  };
-
-  // Sign in with Google
-  const handleSignIn = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      logEvent(analytics, 'google_sign_in_successful');
-    } catch (error) {
-      console.error('Sign in error:', error);
-      logEvent(analytics, 'google_sign_in_failed');
-    }
-  };
-
-  // Sign out
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      setHistory([]);
-      setPendingDream(null);
-      setDreamText('');
-      setInterpretation(null);
-      setCurrentImageUrl(null);
-      logEvent(analytics, 'user_signed_out');
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  };
-
-  // Save dream to Firestore
-  const saveDream = async () => {
-    if (!user) {
-      alert('Please sign in first to save dreams');
-      return;
-    }
-
-    if (!dreamText.trim()) {
-      alert('Please enter a dream description');
-      return;
-    }
-
-    try {
-      const dreamData = {
-        userId: user.uid,
-        userEmail: user.email,
-        text: dreamText,
-        interpretation: interpretation,
-        imageUrl: currentImageUrl,
-        date: new Date().toLocaleDateString(),
-        timestamp: new Date(),
-      };
-
-      const docRef = await addDoc(collection(db, 'dreams'), dreamData);
-      logEvent(analytics, 'dream_saved', {
-        dreamLength: dreamText.length,
-        hasInterpretation: !!interpretation,
-        hasImage: !!currentImageUrl,
-      });
-
-      // Add to local history
-      setHistory([
-        { id: docRef.id, ...dreamData },
-        ...history,
-      ]);
-
-      // Reset form
-      setDreamText('');
-      setInterpretation(null);
-      setCurrentImageUrl(null);
-      setPendingDream(null);
-      alert('Dream saved successfully!');
-    } catch (error) {
-      console.error('Error saving dream:', error);
-      alert('Failed to save dream. Please try again.');
-    }
-  };
-
-  // Load last dream
-  const loadLastDream = async () => {
-    if (!user) {
-      alert('Please sign in first');
-      return;
-    }
-
-    try {
-      const q = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid),
-        orderBy('timestamp', 'desc')
-      );
-      const snapshot = await getDocs(q);
-
-      if (snapshot.size > 0) {
-        const lastDream = snapshot.docs[0].data();
-        setDreamText(lastDream.text);
-        setInterpretation(lastDream.interpretation || null);
-        setCurrentImageUrl(lastDream.imageUrl || null);
-        logEvent(analytics, 'last_dream_loaded');
-      } else {
-        alert('No previous dreams found');
-      }
-    } catch (error) {
-      console.error('Error loading last dream:', error);
-      alert('Failed to load last dream');
-    }
-  };
-
-  // Request dream interpretation
-  const handleInterpret = async () => {
-    if (!dreamText.trim()) {
-      alert('Please enter a dream first');
-      return;
-    }
-
-    setIsInterpreting(true);
-    logEvent(analytics, 'dream_interpretation_requested', {
-      dreamLength: dreamText.length,
-    });
-
-    try {
-      const result = await interpretDream(dreamText);
-      setInterpretation(result);
-      logEvent(analytics, 'dream_interpretation_completed');
-    } catch (error) {
-      console.error('Interpretation error:', error);
-      alert('Failed to interpret dream');
-    } finally {
-      setIsInterpreting(false);
-    }
-  };
-
-  // Generate dream image
-  const handleGenerateImage = async () => {
-    if (!interpretation) {
-      alert('Please get an interpretation first');
-      return;
-    }
-
-    setIsGeneratingImage(true);
-    logEvent(analytics, 'dream_image_generation_started');
-
-    try {
-      const imageUrl = await generateDreamImage(interpretation);
-      setCurrentImageUrl(imageUrl);
-      logEvent(analytics, 'dream_image_generated');
-    } catch (error) {
-      console.error('Image generation error:', error);
-      alert('Failed to generate image');
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
-  // Transcribe audio
-  const handleStartRecording = async () => {
-    setIsRecording(true);
-    logEvent(analytics, 'audio_recording_started');
-    try {
-      const text = await transcribeAudio();
-      setDreamText(text);
-      logEvent(analytics, 'audio_transcribed', {
-        transcribedLength: text.length,
-      });
-    } catch (error) {
-      console.error('Recording error:', error);
-    } finally {
-      setIsRecording(false);
-    }
-  };
-
-  // Delete dream
-  const deleteDream = async (dreamId: string) => {
-    if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'dreams', dreamId));
-      setHistory(history.filter((d) => d.id !== dreamId));
-      logEvent(analytics, 'dream_deleted');
-    } catch (error) {
-      console.error('Delete error:', error);
-    }
-  };
-
-  // Speak interpretation
-  const handleSpeak = async () => {
-    if (!interpretation) return;
-    try {
-      await speakInterpretation(interpretation);
-      logEvent(analytics, 'interpretation_spoken');
-    } catch (error) {
-      console.error('Speech error:', error);
-    }
-  };
-
-  return (
-    <div style={{ background: theme.bg, color: theme.text }} className="min-h-screen p-4 md:p-8">
-      {/* Header with Authentication */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto mb-8"
-      >
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Dream Interpretation</h1>
-          <div className="flex items-center gap-4">
-            {!user ? (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSignIn}
-                className="px-6 py-2 rounded-lg font-semibold text-white"
-                style={{ background: theme.accent }}
-              >
-                Sign In with Google
-              </motion.button>
-            ) : (
-              <div className="flex items-center gap-4">
-                <div className="text-sm">
-                  <p className="font-semibold">{user.displayName || 'User'}</p>
-                  <p className="text-xs opacity-75">{user.email}</p>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleSignOut}
-                  className="px-4 py-2 rounded-lg font-semibold text-white text-sm"
-                  style={{ background: '#666' }}
-                >
-                  Sign Out
-                </motion.button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Main Input Area */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="p-6 rounded-xl"
-          style={{ background: 'rgba(255,255,255,0.05)', borderColor: theme.accent, borderWidth: '1px' }}
-        >
-          <textarea
-            value={dreamText}
-            onChange={(e) => setDreamText(e.target.value)}
-            placeholder="Describe your dream..."
-            className="w-full bg-transparent text-white placeholder-gray-500 focus:outline-none resize-none"
-            rows={6}
-            style={{ color: theme.text }}
-          />
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 flex-wrap mt-4">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleStartRecording}
-              disabled={isRecording}
-              className="p-3 rounded-full text-white disabled:opacity-50"
-              style={{ background: theme.accent }}
-            >
-              {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleInterpret}
-              disabled={isInterpreting || !dreamText.trim()}
-              className="flex items-center gap-2 px-4 py-3 rounded-lg text-white disabled:opacity-50"
-              style={{ background: theme.accent }}
-            >
-              {isInterpreting ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-              Interpret
-            </motion.button>
-
-            {interpretation && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleGenerateImage}
-                disabled={isGeneratingImage}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg text-white disabled:opacity-50"
-                style={{ background: theme.accent }}
-              >
-                {isGeneratingImage ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-                Generate Image
-              </motion.button>
-            )}
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={saveDream}
-              className="flex items-center gap-2 px-4 py-3 rounded-lg text-white"
-              style={{ background: theme.accent }}
-            >
-              <Send size={20} />
-              Save Dream
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={loadLastDream}
-              className="flex items-center gap-2 px-4 py-3 rounded-lg text-white"
-              style={{ background: 'rgba(255,255,255,0.1)' }}
-            >
-              <History size={20} />
-              Last Dream
-            </motion.button>
-          </div>
-        </motion.div>
-
-        {/* Interpretation Display */}
-        {interpretation && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 p-6 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.05)', borderColor: theme.accent, borderWidth: '1px' }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Interpretation</h3>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                onClick={handleSpeak}
-                className="p-2 rounded-full"
-                style={{ background: theme.accent }}
-              >
-                <Volume2 size={20} />
-              </motion.button>
-            </div>
-            <ReactMarkdown className="prose dark:prose-invert max-w-none">
-              {interpretation}
-            </ReactMarkdown>
-          </motion.div>
-        )}
-
-        {/* Image Display */}
-        {currentImageUrl && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 rounded-xl overflow-hidden"
-          >
-            <img src={currentImageUrl} alt="Dream visualization" className="w-full h-auto" />
-          </motion.div>
-        )}
-
-        {/* Dream History */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-8"
-        >
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-2 text-lg font-semibold mb-4"
-            style={{ color: theme.accent }}
-          >
-            <History size={24} />
-            Dream History ({history.length})
-          </button>
-
-          <AnimatePresence>
-            {showHistory && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="grid gap-4"
-              >
-                {history.map((dream) => (
-                  <motion.div
-                    key={dream.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="p-4 rounded-lg cursor-pointer"
-                    style={{ background: 'rgba(255,255,255,0.05)', borderColor: theme.accent, borderWidth: '1px' }}
-                    onClick={() => {
-                      setDreamText(dream.text);
-                      setInterpretation(dream.interpretation || null);
-                      setCurrentImageUrl(dream.imageUrl || null);
-                    }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <p className="text-sm opacity-75">{dream.date}</p>
-                        <p className="mt-2 line-clamp-2">{dream.text}</p>
-                      </div>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteDream(dream.id);
-                        }}
-                        className="p-2 rounded-full text-red-400 hover:bg-red-400 hover:bg-opacity-20"
-                      >
-                        <Trash2 size={18} />
-                      </motion.button>
+                          >
+                            <Settings size={14} /> Edit
+                          </motion.button>
+                        </motion.div>
+                      ))}
                     </div>
-                  </motion.div>
-                ))}
+                  )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
-      </motion.div>
+        </main>
+
+        <footer className="mt-24 text-center text-slate-400 text-[10px] tracking-[0.4em] uppercase pb-12 font-bold">
+          &copy; {new Date().getFullYear()} Dream Interpretation Dictionary • dreaminterpretation-dictionary.com
+        </footer>
+      </div>
     </div>
   );
 }

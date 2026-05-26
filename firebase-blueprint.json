@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "Dream": {
+      "title": "Dream",
+      "description": "A recorded dream with its interpretation and potential image.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user who owns this dream." },
+        "text": { "type": "string", "description": "The text description of the dream." },
+        "interpretation": { "type": "string", "description": "The interpretation of the dream." },
+        "imageUrl": { "type": "string", "description": "URL of the generated dream visualization." },
+        "date": { "type": "string", "description": "The date the dream was recorded." }
+      },
+      "required": ["userId", "text"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile tracking usage, subscription, and credits.",
+      "type": "object",
+      "properties": {
+        "interpretationCount": { "type": "number", "description": "Current monthly interpretation count." },
+        "periodStartDate": { "type": "string", "description": "ISO date of the current monthly period start." },
+        "subscriptionTier": { "type": "string", "description": "User's current plan (e.g., 'free', 'pro')." }
+      },
+      "required": ["interpretationCount", "periodStartDate", "subscriptionTier"]
+    }
+  },
+  "firestore": {
+    "/dreams/{dreamId}": {
+      "schema": "Dream",
+      "description": "User's collection of recorded dreams."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile tracking usage and subscription."
+    }
+  }
+}

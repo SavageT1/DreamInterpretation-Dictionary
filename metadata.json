@@ -1,5 +1,6 @@
 {
   "name": "Dream Interpretation Dictionary",
   "description": "A calming, meditative AI-powered dream dictionary and journal. Interpret your subconscious symbols and track your dreams over time.",
-  "requestFramePermissions": ["microphone"]
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
