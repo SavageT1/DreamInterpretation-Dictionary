@@ -41,7 +41,7 @@ function getAI() {
 }
 async function startServer() {
   const app = reportAppErrors();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT ?? process.env.APP_PORT ?? 3000);
 
   app.use(express.json());
 
