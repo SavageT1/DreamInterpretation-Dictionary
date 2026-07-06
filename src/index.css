@@ -13,9 +13,18 @@
     --text-color: #f1f5f9;
     --accent-color: #a855f7;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply antialiased bg-[var(--bg-color)] text-[var(--text-color)];
+    color-scheme: dark;
     overflow-x: hidden;
+  }
+
+  ::selection {
+    background: rgba(168, 85, 247, 0.32);
+    color: #ffffff;
   }
 }
 
@@ -123,6 +132,7 @@
   pointer-events: none;
 }
 
+/* Launch cleanup: hide extra feature controls for MVP */
 [aria-label="Add Dream Tags"],
 [aria-label="Trend Insights"],
 [aria-label="Voice Input"],

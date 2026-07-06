@@ -1,5 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Loader2, Search, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 type VaultEntry = {
   id: string;
@@ -10,6 +9,20 @@ type VaultEntry = {
   createdAt: string;
   starred: boolean;
 };
+
+const STORAGE_KEY = 'dream-interpretation-dictionary:vault:v1';
+const FREE_ENTRY_LIMIT = 3;
+const FEATURED_OFFER_URL = 'https://somsleep.sjv.io/5kqA5L';
+const FEATURED_PROJECT_URL = 'https://upwork.pxf.io/enQqRz';
+const FEATURED_TOOL_URL = 'https://muzzle.sjv.io/oNGznm';
+const FEATURED_QUIET_URL = 'https://quiettimellc.sjv.io/0GnmmJ';
+const FEATURED_HUB_URL = 'https://hubsparkinc.sjv.io/c/5677401/3764648/47578';
+const FEATURED_SLEEP_URL = 'https://sleepcyclecreator.sjv.io/c/5677401/2545291/26752';
+const FEATURED_NATURAL_URL = 'https://nuleafnaturals.sjv.io/c/5677401/659367/10322';
+const FEATURED_REWARX_URL = 'https://rewarxlimited.pxf.io/VOQZNO';
+const FEATURED_REWARX_STUDIO_URL = 'https://rewarxlimited.pxf.io/c/5677401/3953964/49656';
+const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() ?? '';
+const FEATURED_OFFER_IMAGE = new URL('../../som-sleep-powder-drink-mix-all-flavors.jpeg', import.meta.url).href;
 
 type PartnerLink = {
   href: string;
@@ -23,35 +36,17 @@ type PartnerLink = {
   imageAlt?: string;
 };
 
-const STORAGE_KEY = 'dream-interpretation-dictionary:vault:v1';
-const FREE_ENTRY_LIMIT = 3;
-const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() ?? '';
-
-const FEATURED_OFFER_URL = 'https://somsleep.sjv.io/5kqA5L';
-const FEATURED_PROJECT_URL = 'https://upwork.pxf.io/enQqRz';
-const FEATURED_TOOL_URL = 'https://muzzle.sjv.io/oNGznm';
-const FEATURED_QUIET_URL = 'https://quiettimellc.sjv.io/0GnmmJ';
-const FEATURED_HUB_URL = 'https://hubsparkinc.sjv.io/AgAmm7';
-const FEATURED_SLEEP_URL = 'https://sleepcyclecreator.sjv.io/c/5677401/2545291/26752';
-const FEATURED_NATURAL_URL = 'https://nuleafnaturals.sjv.io/c/5677401/659367/10322';
-const FEATURED_REWARX_URL = 'https://rewarxlimited.pxf.io/VOQZNO';
-const FEATURED_REWARX_STUDIO_URL = 'https://rewarxlimited.pxf.io/c/5677401/3953964/49656';
-
-const FEATURED_OFFER_IMAGE = 'https://a.impactradius-go.com/display-ad/34906-2982649';
-const FEATURED_HUB_IMAGE = 'https://a.impactradius-go.com/display-ad/47578-3764648';
-const FEATURED_NATURAL_IMAGE = 'https://a.impactradius-go.com/display-ad/10322-659367';
-
 const partnerLinks: PartnerLink[] = [
   {
     href: FEATURED_OFFER_URL,
     label: 'Sleep pick',
     title: 'Sleep support',
-    description: 'A simple sleep-support recommendation for the sidebar.',
+    description: 'A useful option for your dream and sleep routine.',
     buttonLabel: 'View',
     thumbnail: 'ZZ',
     gradient: 'from-fuchsia-500/90 via-purple-500/70 to-cyan-400/70',
     imageSrc: FEATURED_OFFER_IMAGE,
-    imageAlt: 'Sleep support ad image',
+    imageAlt: 'Som Sleep product image',
   },
   {
     href: FEATURED_PROJECT_URL,
@@ -65,8 +60,8 @@ const partnerLinks: PartnerLink[] = [
   {
     href: FEATURED_TOOL_URL,
     label: 'Focus pick',
-    title: 'Calmer browsing',
-    description: 'A useful companion if you want fewer interruptions while journaling.',
+    title: 'Calmer browsing and focus',
+    description: 'A useful companion if you want fewer interruptions while writing or journaling.',
     buttonLabel: 'Open',
     thumbnail: 'MF',
     gradient: 'from-indigo-500/80 via-violet-500/70 to-fuchsia-400/70',
@@ -88,7 +83,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'Open',
     thumbnail: 'HS',
     gradient: 'from-sky-500/80 via-blue-500/70 to-indigo-400/70',
-    imageSrc: FEATURED_HUB_IMAGE,
+    imageSrc: 'https://a.impactradius-go.com/display-ad/47578-3764648',
     imageAlt: 'Helpful support product image',
   },
   {
@@ -108,7 +103,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'NL',
     gradient: 'from-lime-500/80 via-emerald-500/70 to-green-400/70',
-    imageSrc: FEATURED_NATURAL_IMAGE,
+    imageSrc: 'https://a.impactradius-go.com/display-ad/10322-659367',
     imageAlt: 'Natural support product image',
   },
   {
@@ -123,11 +118,14 @@ const partnerLinks: PartnerLink[] = [
   {
     href: FEATURED_REWARX_STUDIO_URL,
     label: 'Studio pick',
-    title: 'AI Product Photography',
-    description: 'Commercial-quality product visuals for stores and marketplaces.',
+    title: 'AI Product Photography for Ecommerce',
+    description:
+      'Commercial-quality product visuals for stores, marketplaces, and social media.',
     buttonLabel: 'View',
     thumbnail: 'RW',
     gradient: 'from-slate-500/80 via-zinc-500/70 to-neutral-400/70',
+    imageSrc: 'https://a.impactradius-go.com/display-ad/49656-3953964',
+    imageAlt: 'AI Product Photography for Ecommerce ad',
   },
 ];
 
@@ -139,37 +137,42 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function summarizeDream(dreamText: string, notes: string, focus: string, tone: string) {
-  const lower = dreamText.toLowerCase();
-  const noteLower = notes.toLowerCase();
-  const clues: string[] = [];
-  const noteSignals: string[] = [];
+function summarizeDream(dream: string) {
+  const text = dream.trim();
+  if (!text) return 'Your dream will appear here after you interpret it.';
 
-  if (/(fall|falling|drop|dropped)/.test(lower)) clues.push('pressure, uncertainty, or a fear of losing your footing');
-  if (/(water|ocean|river|rain|flood|swim)/.test(lower)) clues.push('emotions that are deep, active, or changing');
-  if (/(teeth|tooth)/.test(lower)) clues.push('confidence, change, or concern about how you are being seen');
-  if (/(chase|running|hiding|escape)/.test(lower)) clues.push('urgency, avoidance, or something that wants your attention');
-  if (/(house|room|home|door)/.test(lower)) clues.push('your inner life, identity, or a specific area of life');
-  if (/(snake|snakes|animal)/.test(lower)) clues.push('instincts, alertness, or a situation that feels unpredictable');
-  if (/(car|drive|driving|road|traffic)/.test(lower)) clues.push('direction, momentum, or control over your path');
-  if (/(school|class|test|exam|teacher)/.test(lower)) clues.push('learning, evaluation, or a situation where you feel tested');
-  if (/(baby|child|pregnant)/.test(lower)) clues.push('something new that needs care, patience, or protection');
-  if (/(death|dying|funeral)/.test(lower)) clues.push('an ending, transition, or major change');
+  const lower = text.toLowerCase();
+  const signals: string[] = [];
 
-  if (/(recurr|repeat|again|same)/.test(noteLower)) noteSignals.push('your notes suggest a recurring pattern worth tracking');
-  if (/(nightmare|scary|fear|anxious)/.test(noteLower)) noteSignals.push('the emotional tone points toward stress that wants attention');
-  if (/(lucid|aware|control)/.test(noteLower)) noteSignals.push('your awareness in the dream may be part of the message');
-  if (/(book|symbol|dictionary|meaning)/.test(noteLower)) noteSignals.push('your notes point toward symbols you want to compare later');
+  if (/(fall|falling|drop|dropped)/.test(lower)) {
+    signals.push('You may be processing pressure, uncertainty, or a loss of control.');
+  }
 
-  const intro = `${tone} reading for ${focus.toLowerCase()}.`;
-  const clueSentence = clues.length
-    ? `The strongest symbols point to ${clues.join(', ')}.`
-    : 'The dream seems to ask for context from your waking life, especially the feeling it leaves behind.';
-  const noteSentence = noteSignals.length
-    ? `Your notes add: ${noteSignals.join(', ')}.`
-    : 'Keeping notes on how the dream felt will make the next reading sharper.';
+  if (/(water|ocean|river|rain|flood|swim)/.test(lower)) {
+    signals.push('Water often points to emotion, intuition, or a situation that feels deep and active.');
+  }
 
-  return [intro, clueSentence, noteSentence].join(' ');
+  if (/(teeth|tooth)/.test(lower)) {
+    signals.push('Teeth dreams often connect to confidence, change, or concern about appearance and communication.');
+  }
+
+  if (/(chase|running|hiding|escape)/.test(lower)) {
+    signals.push('This can reflect avoidance, urgency, or a part of life that needs attention.');
+  }
+
+  if (/(house|room|home|door)/.test(lower)) {
+    signals.push('A house or room may symbolize your inner life, identity, or a specific area of your world.');
+  }
+
+  if (signals.length === 0) {
+    signals.push('This dream looks like it is asking for context from your waking life and any recurring symbols.');
+  }
+
+  return [
+    'Dream reading',
+    ...signals,
+    'If you want a sharper reading, add a dream book note and watch for repeated symbols over time.',
+  ].join(' ');
 }
 
 function pickTitle(dream: string) {
@@ -184,12 +187,12 @@ export default function DreamJournal() {
   const [dreamBookNotes, setDreamBookNotes] = useState('');
   const [title, setTitle] = useState('');
   const [interpretation, setInterpretation] = useState('');
+  const [interpretedDream, setInterpretedDream] = useState('');
+  const [isInterpreting, setIsInterpreting] = useState(false);
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dreamFocus, setDreamFocus] = useState('General');
-  const [dreamTone, setDreamTone] = useState('Comforting');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isInterpreting, setIsInterpreting] = useState(false);
+  const interpretTimer = useRef<number | null>(null);
+  const pendingDream = useRef('');
 
   useEffect(() => {
     try {
@@ -214,6 +217,28 @@ export default function DreamJournal() {
   }, [vault]);
 
   useEffect(() => {
+    return () => {
+      if (interpretTimer.current !== null) {
+        window.clearTimeout(interpretTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isInterpreting && dream.trim() !== pendingDream.current) {
+      if (interpretTimer.current !== null) {
+        window.clearTimeout(interpretTimer.current);
+        interpretTimer.current = null;
+      }
+
+      setIsInterpreting(false);
+      setInterpretation('');
+      setInterpretedDream('');
+      pendingDream.current = '';
+    }
+  }, [dream, isInterpreting]);
+
+  useEffect(() => {
     if (!GA_MEASUREMENT_ID || typeof window === 'undefined') {
       return;
     }
@@ -229,11 +254,12 @@ export default function DreamJournal() {
       document.head.appendChild(script);
     }
 
-    const analyticsWindow = window as Window & { dataLayer: unknown[][] };
-    analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
+    const analyticsWindow = window as Window & { dataLayer?: unknown[][] };
+    const dataLayer = analyticsWindow.dataLayer ?? [];
+    analyticsWindow.dataLayer = dataLayer;
 
     function gtag(...args: unknown[]) {
-      analyticsWindow.dataLayer.push(args);
+      dataLayer.push(args);
     }
 
     gtag('js', new Date());
@@ -246,37 +272,43 @@ export default function DreamJournal() {
     [vault],
   );
   const liveTitle = title.trim() || (dream.trim() ? pickTitle(dream) : '');
-  const liveInterpretation = dream.trim()
-    ? summarizeDream(dream, dreamBookNotes, dreamFocus, dreamTone)
-    : '';
-  const displayedInterpretation = interpretation || liveInterpretation;
-  const statusLabel = isInterpreting
-    ? 'Reading your dream...'
-    : dream.trim()
-      ? 'Live reading ready'
-      : 'Start typing for a reading';
+  const liveInterpretation = dream.trim() ? summarizeDream(dream) : '';
+  const hasDreamText = dream.trim().length > 0;
+  const hasFreshReading = interpretedDream === dream.trim() && interpretation.trim().length > 0;
+  const displayedInterpretation = isInterpreting ? '' : hasFreshReading ? interpretation : liveInterpretation;
 
-  async function handleInterpret(event: FormEvent<HTMLFormElement>) {
+  function handleInterpret(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const cleanDream = dream.trim();
-    if (!cleanDream || isInterpreting) return;
+    if (!cleanDream) return;
+
+    if (interpretTimer.current !== null) {
+      window.clearTimeout(interpretTimer.current);
+    }
 
     setIsInterpreting(true);
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
-
-    const nextInterpretation = summarizeDream(cleanDream, dreamBookNotes, dreamFocus, dreamTone);
-    setInterpretation(nextInterpretation);
-    setTitle((current) => current.trim() || pickTitle(cleanDream));
+    setInterpretation('');
     setSelectedId(null);
-    setIsInterpreting(false);
+    pendingDream.current = cleanDream;
+
+    interpretTimer.current = window.setTimeout(() => {
+      const nextInterpretation = summarizeDream(cleanDream);
+      setInterpretation(nextInterpretation);
+      setInterpretedDream(cleanDream);
+      setTitle((current) => current.trim() || pickTitle(cleanDream));
+      setIsInterpreting(false);
+      interpretTimer.current = null;
+      pendingDream.current = '';
+    }, 500);
   }
 
   function handleSave() {
     const cleanDream = dream.trim();
     if (!cleanDream) return;
 
-    const nextInterpretation = summarizeDream(cleanDream, dreamBookNotes, dreamFocus, dreamTone);
+    const hasFreshReading = interpretedDream === cleanDream && interpretation.trim().length > 0;
+    const nextInterpretation = hasFreshReading ? interpretation : summarizeDream(cleanDream);
     const nextEntry: VaultEntry = {
       id: createId(),
       title: title.trim() || pickTitle(cleanDream),
@@ -287,9 +319,10 @@ export default function DreamJournal() {
       starred: false,
     };
 
+    setInterpretation(nextInterpretation);
+    setInterpretedDream(cleanDream);
     setVault((current) => [nextEntry, ...current]);
     setSelectedId(nextEntry.id);
-    setInterpretation(nextInterpretation);
   }
 
   function handleLoad(entry: VaultEntry) {
@@ -297,6 +330,7 @@ export default function DreamJournal() {
     setDreamBookNotes(entry.dreamBookNotes);
     setTitle(entry.title);
     setInterpretation(entry.interpretation);
+    setInterpretedDream(entry.dream);
     setSelectedId(entry.id);
   }
 
@@ -312,15 +346,6 @@ export default function DreamJournal() {
       setSelectedId(null);
     }
   }
-
-  const visibleVault = orderedVault.filter((entry) => {
-    const search = searchQuery.toLowerCase();
-    return (
-      entry.title.toLowerCase().includes(search) ||
-      entry.dream.toLowerCase().includes(search) ||
-      entry.interpretation.toLowerCase().includes(search)
-    );
-  });
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-celestial-gradient text-slate-100">
@@ -340,7 +365,7 @@ export default function DreamJournal() {
             Track dreams, interpret symbols, and build your vault.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-            Write the dream, get an instant reading, save the ones worth revisiting, and keep the revenue paths visible without cluttering the page.
+            Track your dreams, get a live reading as you type, and save the ones you want to revisit later.
           </p>
         </header>
 
@@ -349,25 +374,15 @@ export default function DreamJournal() {
             <form
               onSubmit={handleInterpret}
               className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
+              aria-busy={isInterpreting}
             >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Main journal</p>
-                  <h2 className="mt-2 font-display text-2xl text-white">Write a dream and get a reading</h2>
-                </div>
-                <div className="rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100">
-                  {statusLabel}
-                </div>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-2">
                   <span className="text-sm font-medium text-slate-200">Dream title</span>
                   <input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
-                    placeholder="Optional title"
                   />
                   <span className="text-xs text-slate-500">Give the dream a short name so you can find it later.</span>
                 </label>
@@ -378,39 +393,8 @@ export default function DreamJournal() {
                     value={dreamBookNotes}
                     onChange={(event) => setDreamBookNotes(event.target.value)}
                     className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/60 focus:bg-white/10"
-                    placeholder="Symbols, book references, or a quick insight"
                   />
                   <span className="text-xs text-slate-500">Capture symbols, book references, or a quick insight.</span>
-                </label>
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="flex flex-col gap-2">
-                  <span className="text-sm font-medium text-slate-200">Dream focus</span>
-                  <select
-                    value={dreamFocus}
-                    onChange={(event) => setDreamFocus(event.target.value)}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/60 focus:bg-white/10"
-                  >
-                    <option className="bg-slate-900" value="General">General</option>
-                    <option className="bg-slate-900" value="Love">Love</option>
-                    <option className="bg-slate-900" value="Work">Work</option>
-                    <option className="bg-slate-900" value="Family">Family</option>
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-2">
-                  <span className="text-sm font-medium text-slate-200">Reading tone</span>
-                  <select
-                    value={dreamTone}
-                    onChange={(event) => setDreamTone(event.target.value)}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-400/60 focus:bg-white/10"
-                  >
-                    <option className="bg-slate-900" value="Comforting">Comforting</option>
-                    <option className="bg-slate-900" value="Analytical">Analytical</option>
-                    <option className="bg-slate-900" value="Spiritual">Spiritual</option>
-                    <option className="bg-slate-900" value="Direct">Direct</option>
-                  </select>
                 </label>
               </div>
 
@@ -421,37 +405,22 @@ export default function DreamJournal() {
                   onChange={(event) => setDream(event.target.value)}
                   rows={8}
                   className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
-                  placeholder="What happened, who was there, and how did it feel?"
                 />
                 <span className="text-xs text-slate-500">Include what happened, who was there, and how it felt.</span>
               </label>
 
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-                {isInterpreting ? (
-                  <span className="inline-flex items-center gap-2 text-fuchsia-200">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Reading your dream right now.
-                  </span>
-                ) : dream.trim() ? (
-                  'Your reading updates instantly as you type, then gets saved when you choose to keep it.'
-                ) : (
-                  'Type a dream and this area will populate right away.'
-                )}
-              </div>
-
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="submit"
-                  disabled={!dream.trim() || isInterpreting}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isInterpreting || !hasDreamText}
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isInterpreting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  {isInterpreting ? 'Interpreting...' : 'Interpret dream'}
+                  {isInterpreting ? 'Interpreting...' : hasDreamText ? 'Interpret dream' : 'Enter a dream first'}
                 </button>
                 <button
                   type="button"
                   onClick={handleSave}
-                  disabled={!dream.trim()}
+                  disabled={isInterpreting || !hasDreamText}
                   className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Save to dream vault
@@ -460,13 +429,23 @@ export default function DreamJournal() {
             </form>
 
             <div className="grid gap-6 md:grid-cols-2">
-              <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <article className="rounded-3xl border border-white/10 bg-white/5 p-5" aria-live="polite">
                 <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Live reading</p>
                 <h2 className="mt-3 font-display text-2xl text-white">
-                  {liveTitle || 'Your reading will appear here'}
+                  {isInterpreting ? 'Reading your dream...' : liveTitle || 'Your reading will appear here'}
                 </h2>
+                {isInterpreting ? (
+                  <div className="mt-4 flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-cyan-200">
+                    <span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-300" />
+                    <span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-fuchsia-300 [animation-delay:150ms]" />
+                    <span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-white/80 [animation-delay:300ms]" />
+                    <span>Reading in progress</span>
+                  </div>
+                ) : null}
                 <p className="mt-4 text-sm leading-7 text-slate-300">
-                  {displayedInterpretation || 'Type a dream and this reading updates instantly.'}
+                  {isInterpreting
+                    ? 'We are translating the symbols and emotional tone into a reading now...'
+                    : displayedInterpretation || 'Type a dream and this reading updates instantly.'}
                 </p>
               </article>
 
@@ -494,34 +473,13 @@ export default function DreamJournal() {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search saved dreams"
-                  className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-                />
-                {searchQuery ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="text-slate-400 transition hover:text-white"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                ) : null}
-              </div>
-
               <div className="mt-4 space-y-3">
-                {visibleVault.length === 0 ? (
+                {orderedVault.length === 0 ? (
                   <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-400">
                     No vault entries yet. Save your first dream to begin tracking patterns.
                   </p>
                 ) : (
-                  visibleVault.map((entry) => (
+                  orderedVault.map((entry) => (
                     <article
                       key={entry.id}
                       className={`rounded-2xl border px-4 py-4 transition ${
@@ -539,9 +497,7 @@ export default function DreamJournal() {
                         </div>
                         {entry.starred ? <span className="text-xs text-cyan-300">Starred</span> : null}
                       </div>
-                      <p className="mt-3 text-sm leading-6 text-slate-300">
-                        {entry.interpretation.slice(0, 180)}{entry.interpretation.length > 180 ? '...' : ''}
-                      </p>
+                      <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-300">{entry.interpretation}</p>
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button
@@ -554,17 +510,15 @@ export default function DreamJournal() {
                         <button
                           type="button"
                           onClick={() => toggleStar(entry.id)}
-                          className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white"
+                          className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white"
                         >
-                          <Star className="h-3.5 w-3.5" />
                           {entry.starred ? 'Unstar' : 'Star'}
                         </button>
                         <button
                           type="button"
                           onClick={() => removeEntry(entry.id)}
-                          className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white"
+                          className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
                           Delete
                         </button>
                       </div>
@@ -586,7 +540,9 @@ export default function DreamJournal() {
                     className="group overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur transition hover:-translate-y-0.5 hover:border-white/20"
                   >
                     <div className="grid gap-4 p-4 sm:grid-cols-[112px_1fr]">
-                      <div className={`relative h-28 w-full overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} shadow-inner`}>
+                      <div
+                        className={`relative h-28 w-full overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} shadow-inner`}
+                      >
                         {item.imageSrc ? (
                           <img
                             src={item.imageSrc}
@@ -616,13 +572,10 @@ export default function DreamJournal() {
                 ))}
               </div>
             </section>
+
           </aside>
         </div>
       </section>
-
-      <footer className="relative z-10 mx-auto max-w-7xl px-4 pb-12 pt-2 text-center text-[10px] font-bold uppercase tracking-[0.4em] text-slate-400 sm:px-6 lg:px-8">
-        &copy; {new Date().getFullYear()} Dream Interpretation Dictionary • dreaminterpretation-dictionary.com
-      </footer>
     </main>
   );
 }
