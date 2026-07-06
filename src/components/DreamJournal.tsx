@@ -16,6 +16,31 @@ interface Dream {
   imageUrl?: string;
 }
 
+const LOCAL_HISTORY_KEY = 'dream_history';
+
+function buildLocalInterpretation(dreamText: string, focus: string, tone: string) {
+  const lower = dreamText.toLowerCase();
+  const clues: string[] = [];
+
+  if (/(fall|falling|drop|dropped)/.test(lower)) clues.push('a loss of control or a fear of slipping backward');
+  if (/(water|ocean|river|rain|flood|swim)/.test(lower)) clues.push('emotions that are active, deep, or changing');
+  if (/(teeth|tooth)/.test(lower)) clues.push('confidence, change, or a concern about how you are being seen');
+  if (/(chase|running|hiding|escape)/.test(lower)) clues.push('urgency, pressure, or something you may be avoiding');
+  if (/(house|room|home|door)/.test(lower)) clues.push('your inner life, identity, or a specific area of life');
+
+  const clueSentence =
+    clues.length > 0
+      ? `The strongest symbols suggest ${clues.join(', ')}.`
+      : 'The dream seems to be asking for context from your waking life and any repeated symbols.';
+
+  return [
+    `Local ${tone.toLowerCase()} reading for ${focus.toLowerCase()}:`,
+    clueSentence,
+    'Look for the feeling of the dream, not just the objects inside it.',
+    'If this keeps repeating, it may be pointing to a pattern worth tracking in the vault.',
+  ].join(' ');
+}
+
 export default function DreamJournal() {
   const [user, setUser] = React.useState<User | null>(null);
   const [pendingDream, setPendingDream] = React.useState<Dream | null>(null);
@@ -33,6 +58,7 @@ export default function DreamJournal() {
   const [showFocusPanel, setShowFocusPanel] = React.useState(false);
   const [dreamFocus, setDreamFocus] = React.useState('General');
   const [dreamTone, setDreamTone] = React.useState('Comforting');
+  const guestMode = true;
 
   // Auth listener
   React.useEffect(() => {
@@ -99,7 +125,12 @@ export default function DreamJournal() {
       };
       loadHistory();
     } else {
-      setHistory([]);
+      try {
+        const storedHistory = localStorage.getItem(LOCAL_HISTORY_KEY);
+        setHistory(storedHistory ? JSON.parse(storedHistory) : []);
+      } catch {
+        setHistory([]);
+      }
     }
   }, [user]);
 
@@ -222,20 +253,31 @@ export default function DreamJournal() {
   const handleInterpret = async () => {
     if (!dreamText.trim()) return;
     setIsInterpreting(true);
-    setIsGeneratingImage(true);
+    setIsGeneratingImage(Boolean(user));
     setInterpretation(null);
     setCurrentImageUrl(null);
     setPendingDream(null);
     
     try {
-      // Run interpretation and image generation in parallel
-      const [interpretationResult, imageUrlResult] = await Promise.all([
-        interpretDream(dreamText, dreamFocus, dreamTone),
-        generateDreamImage(dreamText).catch(err => {
-          console.warn("Dream image generation failed or quota exceeded:", err);
-          return null; // Return null to gracefully allow text interpretation to succeed
-        })
-      ]);
+      let interpretationResult = buildLocalInterpretation(dreamText, dreamFocus, dreamTone);
+      let imageUrlResult: string | null = null;
+
+      if (user) {
+        try {
+          const [serverInterpretation, serverImageUrl] = await Promise.all([
+            interpretDream(dreamText, dreamFocus, dreamTone),
+            generateDreamImage(dreamText).catch(err => {
+              console.warn("Dream image generation failed or quota exceeded:", err);
+              return null;
+            })
+          ]);
+
+          interpretationResult = serverInterpretation;
+          imageUrlResult = serverImageUrl;
+        } catch (error) {
+          console.warn("Server interpretation failed, using local fallback", error);
+        }
+      }
 
       setInterpretation(interpretationResult);
       setCurrentImageUrl(imageUrlResult);
@@ -258,7 +300,14 @@ export default function DreamJournal() {
   };
 
   const saveToVault = async () => {
-    if (!pendingDream || !user) return;
+    if (!pendingDream) return;
+
+    if (!user) {
+      setHistory([pendingDream, ...history]);
+      setPendingDream(null);
+      handleNewDream();
+      return;
+    }
     
     try {
       const docRef = await addDoc(collection(db, 'dreams'), {
@@ -284,6 +333,22 @@ export default function DreamJournal() {
 
     setIsPlaying(true);
     try {
+      if (!user) {
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(interpretation);
+          utterance.rate = 0.96;
+          utterance.pitch = 1;
+          utterance.onend = () => setIsPlaying(false);
+          utterance.onerror = () => setIsPlaying(false);
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+          return;
+        }
+
+        setIsPlaying(false);
+        return;
+      }
+
       const audioData = await speakInterpretation(interpretation);
       if (!audioData) {
         setIsPlaying(false);
@@ -549,7 +614,7 @@ export default function DreamJournal() {
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               
               <div className="relative">
-                {!user ? (
+                {!user && !guestMode ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center">
                     <div className="relative mb-6">
                       <div className="absolute inset-0 bg-purple-500 blur-2xl opacity-20 scale-[2.5] rounded-full" />
@@ -571,90 +636,95 @@ export default function DreamJournal() {
                       Continue with Google
                     </motion.button>
                   </div>
-                ) : (
-                  <>
-                    {history.length > 0 && !showHistory && !interpretation && (
-                      <button
-                        onClick={() => {
-                          const lastDream = history[0];
-                          setDreamText(lastDream.text);
-                          setInterpretation(lastDream.interpretation || null);
-                          setCurrentImageUrl(lastDream.imageUrl || null);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className="mb-6 flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300 transition-colors"
-                      >
-                        <History size={14} /> Revisit Last Dream
-                      </button>
-                    )}
-                    <textarea
-                      value={dreamText}
-                      onChange={(e) => setDreamText(e.target.value)}
-                      placeholder="Describe your dream... What did you see? How did you feel?"
-                      className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg md:text-xl placeholder:text-slate-400 text-slate-100 resize-none leading-relaxed font-light"
-                    />
-                    <p className="mt-2 text-[11px] text-slate-500 italic max-w-lg">
-                      Patterns over time reveal the subconscious. Secure your insights in the 
-                      <button 
-                        onClick={() => setShowHistory(true)}
-                        className="text-purple-400 hover:text-purple-300 font-bold ml-1 transition-colors"
-                      >
-                        Dream Vault
-                      </button> to track your inner journey and personal growth.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-6 border-t border-white/5 gap-4">
-                      <div className="flex gap-3">
-                        <motion.button
-                          onClick={isRecording ? stopRecording : startRecording}
-                          className={cn(
-                            "p-4 rounded-full transition-all duration-500 shadow-lg relative overflow-hidden group/btn",
-                            isRecording 
-                              ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
-                              : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-sky-300 border border-white/5"
-                          )}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          title={isRecording ? "Stop recording" : "Record your dream"}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                          {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-                        </motion.button>
-                        
-                        <motion.button
-                          onClick={() => setShowHistory(!showHistory)}
-                          className={cn(
-                            "p-4 rounded-full transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
-                            showHistory ? "text-sky-300 bg-sky-500/10 border-sky-500/20" : "text-slate-300 hover:text-sky-300 hover:bg-slate-700/50"
-                          )}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          title="View history"
-                        >
-                          <History size={20} />
-                        </motion.button>
-                      </div>
-
-                      <motion.button
-                        onClick={isEditing ? handleSaveEdit : handleInterpret}
-                        disabled={!dreamText.trim() || isInterpreting}
-                        className="flex items-center justify-center gap-3 px-8 py-4 w-full sm:w-auto bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
-                        whileHover={{ y: -5 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {isInterpreting ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          >
-                            <Sparkles size={20} className="text-purple-500" />
-                          </motion.div>
-                        ) : <Sparkles size={20} className="group-hover:animate-pulse text-purple-500" />}
-                        <span className="tracking-tight text-md uppercase font-black">{isEditing ? "Save Changes" : (isInterpreting ? "Interpreting..." : "Interpret Dream")}</span>
-                      </motion.button>
-                    </div>
-                  </>
+                ) : null}
+                {user ? null : (
+                  <div className="mb-6 rounded-3xl border border-white/10 bg-sky-500/10 px-4 py-3 text-center text-xs text-slate-300">
+                    Guest mode is on. You can interpret and save dreams locally now, then sign in later for cloud sync,
+                    voice tools, and image generation.
+                  </div>
                 )}
+                {history.length > 0 && !showHistory && !interpretation && (
+                  <button
+                    onClick={() => {
+                      const lastDream = history[0];
+                      setDreamText(lastDream.text);
+                      setInterpretation(lastDream.interpretation || null);
+                      setCurrentImageUrl(lastDream.imageUrl || null);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="mb-6 flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+                  >
+                    <History size={14} /> Revisit Last Dream
+                  </button>
+                )}
+                <textarea
+                  value={dreamText}
+                  onChange={(e) => setDreamText(e.target.value)}
+                  placeholder="Describe your dream... What did you see? How did you feel?"
+                  className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg md:text-xl placeholder:text-slate-400 text-slate-100 resize-none leading-relaxed font-light"
+                />
+                <p className="mt-2 text-[11px] text-slate-500 italic max-w-lg">
+                  Patterns over time reveal the subconscious. Secure your insights in the 
+                  <button 
+                    onClick={() => setShowHistory(true)}
+                    className="text-purple-400 hover:text-purple-300 font-bold ml-1 transition-colors"
+                  >
+                    Dream Vault
+                  </button> to track your inner journey and personal growth.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-6 border-t border-white/5 gap-4">
+                  <div className="flex gap-3">
+                    {user && (
+                      <motion.button
+                        onClick={isRecording ? stopRecording : startRecording}
+                        className={cn(
+                          "p-4 rounded-full transition-all duration-500 shadow-lg relative overflow-hidden group/btn",
+                          isRecording 
+                            ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
+                            : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-sky-300 border border-white/5"
+                        )}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        title={isRecording ? "Stop recording" : "Record your dream"}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                        {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+                      </motion.button>
+                    )}
+                    
+                    <motion.button
+                      onClick={() => setShowHistory(!showHistory)}
+                      className={cn(
+                        "p-4 rounded-full transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
+                        showHistory ? "text-sky-300 bg-sky-500/10 border-sky-500/20" : "text-slate-300 hover:text-sky-300 hover:bg-slate-700/50"
+                      )}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      title="View history"
+                    >
+                      <History size={20} />
+                    </motion.button>
+                  </div>
+
+                  <motion.button
+                    onClick={isEditing ? handleSaveEdit : handleInterpret}
+                    disabled={!dreamText.trim() || isInterpreting}
+                    className="flex items-center justify-center gap-3 px-8 py-4 w-full sm:w-auto bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
+                    whileHover={{ y: -5 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {isInterpreting ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Sparkles size={20} className="text-purple-500" />
+                      </motion.div>
+                    ) : <Sparkles size={20} className="group-hover:animate-pulse text-purple-500" />}
+                    <span className="tracking-tight text-md uppercase font-black">{isEditing ? "Save Changes" : (isInterpreting ? "Interpreting..." : "Interpret Dream")}</span>
+                  </motion.button>
+                </div>
               </div>
             </div>
           </motion.div>
