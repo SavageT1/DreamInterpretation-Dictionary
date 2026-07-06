@@ -276,7 +276,7 @@ export default function DreamJournal() {
     const cleanDream = dream.trim();
     if (!cleanDream) return;
 
-    const nextInterpretation = interpretation.trim() || summarizeDream(cleanDream, dreamBookNotes, dreamFocus, dreamTone);
+    const nextInterpretation = summarizeDream(cleanDream, dreamBookNotes, dreamFocus, dreamTone);
     const nextEntry: VaultEntry = {
       id: createId(),
       title: title.trim() || pickTitle(cleanDream),
