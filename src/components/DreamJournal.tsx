@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import FEATURED_OFFER_IMAGE from '../../som-sleep-powder-drink-mix-all-flavors.jpeg';
 
 type VaultEntry = {
   id: string;
@@ -22,7 +23,6 @@ const FEATURED_NATURAL_URL = 'https://nuleafnaturals.sjv.io/c/5677401/659367/103
 const FEATURED_REWARX_URL = 'https://rewarxlimited.pxf.io/VOQZNO';
 const FEATURED_REWARX_STUDIO_URL = 'https://rewarxlimited.pxf.io/c/5677401/3953964/49656';
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() ?? '';
-const FEATURED_OFFER_IMAGE = new URL('../../som-sleep-powder-drink-mix-all-flavors.jpeg', import.meta.url).href;
 
 type PartnerLink = {
   href: string;
