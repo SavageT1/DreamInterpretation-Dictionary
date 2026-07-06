@@ -55,6 +55,7 @@ export default function DreamJournal() {
   const [history, setHistory] = React.useState<Dream[]>([]);
   const [showHistory, setShowHistory] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
+  const [showMonetization, setShowMonetization] = React.useState(true);
   const [showFocusPanel, setShowFocusPanel] = React.useState(false);
   const [dreamFocus, setDreamFocus] = React.useState('General');
   const [dreamTone, setDreamTone] = React.useState('Comforting');
@@ -581,8 +582,11 @@ export default function DreamJournal() {
                             Enable Notifications
                             <input type="checkbox" className="accent-purple-600" defaultChecked />
                         </label>
-                        <button className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-500">
-                           Manage Subscription
+                        <button
+                          onClick={() => setShowMonetization((value) => !value)}
+                          className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-500"
+                        >
+                           Manage Revenue Stack
                         </button>
                     </div>
                 </div>
@@ -728,6 +732,53 @@ export default function DreamJournal() {
               </div>
             </div>
           </motion.div>
+
+          {showMonetization && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
+              <div className="rounded-[32px] border border-white/10 bg-slate-900/60 p-5 backdrop-blur-xl">
+                <p className="text-[10px] uppercase tracking-[0.35em] text-sky-400 font-black mb-2">AdSense Ready</p>
+                <h3 className="text-lg font-semibold text-white mb-2">Reserve ad placements now</h3>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  We can drop AdSense units into these slots as soon as the account is approved, without redesigning the page later.
+                </p>
+                <div className="mt-4 grid grid-cols-1 gap-2">
+                  <div className="rounded-2xl border border-dashed border-sky-500/30 bg-sky-500/5 px-3 py-3 text-xs text-sky-200">
+                    Top banner ad slot
+                  </div>
+                  <div className="rounded-2xl border border-dashed border-sky-500/30 bg-sky-500/5 px-3 py-3 text-xs text-sky-200">
+                    In-content rectangle
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[32px] border border-white/10 bg-slate-900/60 p-5 backdrop-blur-xl">
+                <p className="text-[10px] uppercase tracking-[0.35em] text-emerald-400 font-black mb-2">Affiliate Stack</p>
+                <h3 className="text-lg font-semibold text-white mb-2">Best for fast early revenue</h3>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  We can add dream journals, notebooks, sleep tools, or spiritual books here and swap in Impact links when you’re ready.
+                </p>
+                <div className="mt-4 rounded-2xl border border-dashed border-emerald-500/30 bg-emerald-500/5 px-3 py-3 text-xs text-emerald-200">
+                  Partner recommendation card
+                </div>
+              </div>
+
+              <div className="rounded-[32px] border border-white/10 bg-slate-900/60 p-5 backdrop-blur-xl">
+                <p className="text-[10px] uppercase tracking-[0.35em] text-purple-400 font-black mb-2">Dream Vault Pro</p>
+                <h3 className="text-lg font-semibold text-white mb-2">Subscription tier without friction</h3>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Keep the free journal open now, then add a paid tier later for cloud sync, voice tools, and extra interpretations.
+                </p>
+                <div className="mt-4 rounded-2xl border border-dashed border-purple-500/30 bg-purple-500/5 px-3 py-3 text-xs text-purple-200">
+                  Pro upgrade CTA
+                </div>
+              </div>
+            </motion.section>
+          )}
 
           {/* Interpretation Result */}
           <AnimatePresence mode="wait">
