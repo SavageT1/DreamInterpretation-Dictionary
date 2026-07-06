@@ -15,5 +15,117 @@
   }
   body {
     @apply antialiased bg-[var(--bg-color)] text-[var(--text-color)];
+    overflow-x: hidden;
   }
+}
+
+@keyframes nebula-drift-1 {
+  0% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+    opacity: 0.12;
+  }
+  33% {
+    transform: translate(40px, -60px) scale(1.15) rotate(120deg);
+    opacity: 0.22;
+  }
+  66% {
+    transform: translate(-30px, 30px) scale(0.9) rotate(240deg);
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1) rotate(360deg);
+    opacity: 0.12;
+  }
+}
+
+@keyframes nebula-drift-2 {
+  0% {
+    transform: translate(0px, 0px) scale(1.1) rotate(360deg);
+    opacity: 0.1;
+  }
+  50% {
+    transform: translate(-50px, 40px) scale(0.85) rotate(180deg);
+    opacity: 0.18;
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1.1) rotate(0deg);
+    opacity: 0.1;
+  }
+}
+
+@keyframes slow-pulse {
+  0%, 100% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes shooting-star {
+  0% {
+    transform: translateX(0) translateY(0) rotate(-45deg) scale(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) rotate(-45deg) scale(1);
+  }
+  15% {
+    transform: translateX(-300px) translateY(300px) rotate(-45deg) scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-300px) translateY(300px) rotate(-45deg) scale(0);
+    opacity: 0;
+  }
+}
+
+.nebula-glow-1 {
+  animation: nebula-drift-1 25s ease-in-out infinite;
+}
+
+.nebula-glow-2 {
+  animation: nebula-drift-2 32s ease-in-out infinite;
+}
+
+.bg-celestial-gradient {
+  background: radial-gradient(circle at 50% 50%, rgba(15, 10, 36, 0.45) 0%, rgba(0, 1, 3, 1) 100%);
+}
+
+.shooting-star-emitter {
+  position: absolute;
+  top: 10%;
+  right: 15%;
+  width: 2px;
+  height: 2px;
+  background: linear-gradient(-45deg, rgba(255, 255, 255, 1), rgba(168, 85, 247, 0));
+  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.8));
+  border-radius: 50%;
+  animation: shooting-star 14s ease-in-out infinite;
+  animation-delay: 4s;
+  pointer-events: none;
+}
+
+.shooting-star-emitter-2 {
+  position: absolute;
+  top: 25%;
+  right: -5%;
+  width: 2px;
+  height: 2px;
+  background: linear-gradient(-45deg, rgba(255, 255, 255, 1), rgba(56, 189, 248, 0));
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
+  border-radius: 50%;
+  animation: shooting-star 18s ease-in-out infinite;
+  animation-delay: 10s;
+  pointer-events: none;
+}
+
+[aria-label="Add Dream Tags"],
+[aria-label="Trend Insights"],
+[aria-label="Voice Input"],
+[aria-label="Dream Mood Sync"] {
+  display: none !important;
 }
