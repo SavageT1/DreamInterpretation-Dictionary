@@ -4,12 +4,16 @@ import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY?.trim();
+const clientConfig = apiKey ? { ...firebaseConfig, apiKey } : null;
+const app = clientConfig ? initializeApp(clientConfig) : null;
+
+export const firebaseEnabled = Boolean(app);
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app, firebaseConfig.firestoreDatabaseId) : null;
 export let analytics: Analytics | null = null;
 
-if (typeof window !== "undefined") {
+if (app && typeof window !== "undefined") {
   void isSupported()
     .then((supported) => {
       if (supported) {

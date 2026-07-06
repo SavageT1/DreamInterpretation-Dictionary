@@ -4,7 +4,7 @@ import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, Vol
 import ReactMarkdown from 'react-markdown';
 import { interpretDream, transcribeAudio, speakInterpretation, generateDreamImage } from '../lib/gemini';
 import { cn } from '../lib/utils';
-import { auth, db, googleProvider } from '../lib/firebase';
+import { auth, db, firebaseEnabled, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 
@@ -63,6 +63,7 @@ export default function DreamJournal() {
 
   // Auth listener
   React.useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
     });
@@ -114,7 +115,7 @@ export default function DreamJournal() {
 
   // Load history from Firestore
   React.useEffect(() => {
-    if (user) {
+    if (user && db) {
       const loadHistory = async () => {
         const q = query(collection(db, 'dreams'), where('userId', '==', user.uid));
         const querySnapshot = await getDocs(q);
@@ -303,7 +304,7 @@ export default function DreamJournal() {
   const saveToVault = async () => {
     if (!pendingDream) return;
 
-    if (!user) {
+    if (!user || !db) {
       setHistory([pendingDream, ...history]);
       setPendingDream(null);
       handleNewDream();
@@ -538,10 +539,14 @@ export default function DreamJournal() {
             <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-white p-2">
                 <Settings size={20} />
             </button>
-            {user ? (
-              <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign Out</button>
+            {firebaseEnabled && auth ? (
+              user ? (
+                <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign Out</button>
+              ) : (
+                <button onClick={() => auth && signInWithPopup(auth, googleProvider)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign In</button>
+              )
             ) : (
-              <button onClick={() => signInWithPopup(auth, googleProvider)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign In</button>
+              <div className="text-xs text-slate-500 border border-white/10 px-3 py-1 rounded">Cloud sync off</div>
             )}
           </div>
           <div className="text-center">
@@ -629,7 +634,7 @@ export default function DreamJournal() {
                       Sign in to interpret your dreams, visualize them with advanced AI, and securely store your insights in the Dream Vault.
                     </p>
                     <motion.button
-                      onClick={() => signInWithPopup(auth, googleProvider)}
+                      onClick={() => auth && signInWithPopup(auth, googleProvider)}
                       className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full font-bold shadow-[0_15px_30px_rgba(147,51,234,0.3)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.4)] transition-all cursor-pointer border border-purple-400/20 active:scale-95"
                       whileHover={{ scale: 1.05, y: -2 }}
                       whileTap={{ scale: 0.95 }}
@@ -645,6 +650,12 @@ export default function DreamJournal() {
                   <div className="mb-6 rounded-3xl border border-white/10 bg-sky-500/10 px-4 py-3 text-center text-xs text-slate-300">
                     Guest mode is on. You can interpret and save dreams locally now, then sign in later for cloud sync,
                     voice tools, and image generation.
+                  </div>
+                )}
+                {!firebaseEnabled && (
+                  <div className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-center text-xs text-amber-100">
+                    Firebase is not configured yet, so this launch is running in safe local mode. Add the deployment
+                    environment key later to restore cloud sync.
                   </div>
                 )}
                 {history.length > 0 && !showHistory && !interpretation && (
