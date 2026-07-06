@@ -541,12 +541,14 @@ export default function DreamJournal() {
             </button>
             {firebaseEnabled && auth ? (
               user ? (
-                <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign Out</button>
+                <button onClick={() => signOut(auth)} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white">Sign Out</button>
               ) : (
-                <button onClick={() => auth && signInWithPopup(auth, googleProvider)} className="text-xs text-slate-400 hover:text-white border px-3 py-1 rounded">Sign In</button>
+                <button onClick={() => auth && signInWithPopup(auth, googleProvider)} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white">Sign In</button>
               )
             ) : (
-              <div className="text-xs text-slate-500 border border-white/10 px-3 py-1 rounded">Cloud sync off</div>
+              <div className="rounded-full border border-amber-400/20 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-100">
+                Local preview
+              </div>
             )}
           </div>
           <div className="text-center">
@@ -646,16 +648,24 @@ export default function DreamJournal() {
                     </motion.button>
                   </div>
                 ) : null}
-                {user ? null : (
-                  <div className="mb-6 rounded-3xl border border-white/10 bg-sky-500/10 px-4 py-3 text-center text-xs text-slate-300">
-                    Guest mode is on. You can interpret and save dreams locally now, then sign in later for cloud sync,
-                    voice tools, and image generation.
+                {!firebaseEnabled && (
+                  <div className="mb-6 overflow-hidden rounded-[28px] border border-amber-400/20 bg-gradient-to-r from-amber-500/10 via-white/5 to-sky-500/10 p-[1px]">
+                    <div className="rounded-[27px] bg-slate-950/70 px-5 py-4 text-center">
+                      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-100">
+                        <Check size={12} />
+                        Local preview mode
+                      </div>
+                      <p className="text-sm text-slate-200">
+                        The app is live and usable right now. Cloud sync will turn on automatically once the Firebase
+                        environment key is added in deployment.
+                      </p>
+                    </div>
                   </div>
                 )}
-                {!firebaseEnabled && (
-                  <div className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-center text-xs text-amber-100">
-                    Firebase is not configured yet, so this launch is running in safe local mode. Add the deployment
-                    environment key later to restore cloud sync.
+                {firebaseEnabled && !user && (
+                  <div className="mb-6 rounded-3xl border border-white/10 bg-sky-500/10 px-4 py-3 text-center text-xs leading-5 text-slate-300">
+                    Guest mode is on. You can interpret and save dreams locally now, then sign in later for cloud sync,
+                    voice tools, and image generation.
                   </div>
                 )}
                 {history.length > 0 && !showHistory && !interpretation && (
