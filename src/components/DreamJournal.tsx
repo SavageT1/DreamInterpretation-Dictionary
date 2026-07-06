@@ -1,1109 +1,628 @@
-import * as React from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue } from 'motion/react';
-import { Mic, MicOff, Send, Play, Pause, Trash2, History, Sparkles, Volume2, VolumeX, Search, X, Image as ImageIcon, Loader2, Share2, Check, Settings, Clipboard } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import { interpretDream, transcribeAudio, speakInterpretation, generateDreamImage } from '../lib/gemini';
-import { cn } from '../lib/utils';
-import { auth, db, firebaseEnabled, googleProvider } from '../lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { collection, addDoc, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { Loader2, Search, Sparkles, Star, Trash2, X } from 'lucide-react';
 
-interface Dream {
+type VaultEntry = {
   id: string;
-  date: string;
-  text: string;
-  interpretation?: string;
-  imageUrl?: string;
+  title: string;
+  dream: string;
+  dreamBookNotes: string;
+  interpretation: string;
+  createdAt: string;
+  starred: boolean;
+};
+
+type PartnerLink = {
+  href: string;
+  label: string;
+  title: string;
+  description: string;
+  buttonLabel: string;
+  thumbnail: string;
+  gradient: string;
+  imageSrc?: string;
+  imageAlt?: string;
+};
+
+const STORAGE_KEY = 'dream-interpretation-dictionary:vault:v1';
+const FREE_ENTRY_LIMIT = 3;
+const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() ?? '';
+
+const FEATURED_OFFER_URL = 'https://somsleep.sjv.io/5kqA5L';
+const FEATURED_PROJECT_URL = 'https://upwork.pxf.io/enQqRz';
+const FEATURED_TOOL_URL = 'https://muzzle.sjv.io/oNGznm';
+const FEATURED_QUIET_URL = 'https://quiettimellc.sjv.io/0GnmmJ';
+const FEATURED_HUB_URL = 'https://hubsparkinc.sjv.io/AgAmm7';
+const FEATURED_SLEEP_URL = 'https://sleepcyclecreator.sjv.io/c/5677401/2545291/26752';
+const FEATURED_NATURAL_URL = 'https://nuleafnaturals.sjv.io/c/5677401/659367/10322';
+const FEATURED_REWARX_URL = 'https://rewarxlimited.pxf.io/VOQZNO';
+const FEATURED_REWARX_STUDIO_URL = 'https://rewarxlimited.pxf.io/c/5677401/3953964/49656';
+
+const FEATURED_OFFER_IMAGE = 'https://a.impactradius-go.com/display-ad/34906-2982649';
+const FEATURED_HUB_IMAGE = 'https://a.impactradius-go.com/display-ad/47578-3764648';
+const FEATURED_NATURAL_IMAGE = 'https://a.impactradius-go.com/display-ad/10322-659367';
+
+const partnerLinks: PartnerLink[] = [
+  {
+    href: FEATURED_OFFER_URL,
+    label: 'Sleep pick',
+    title: 'Sleep support',
+    description: 'A simple sleep-support recommendation for the sidebar.',
+    buttonLabel: 'View',
+    thumbnail: 'ZZ',
+    gradient: 'from-fuchsia-500/90 via-purple-500/70 to-cyan-400/70',
+    imageSrc: FEATURED_OFFER_IMAGE,
+    imageAlt: 'Sleep support ad image',
+  },
+  {
+    href: FEATURED_PROJECT_URL,
+    label: 'Work pick',
+    title: 'Project support',
+    description: 'Helpful if you want outside help with writing, design, or site features.',
+    buttonLabel: 'Open',
+    thumbnail: 'UP',
+    gradient: 'from-emerald-500/80 via-teal-500/70 to-sky-400/70',
+  },
+  {
+    href: FEATURED_TOOL_URL,
+    label: 'Focus pick',
+    title: 'Calmer browsing',
+    description: 'A useful companion if you want fewer interruptions while journaling.',
+    buttonLabel: 'Open',
+    thumbnail: 'MF',
+    gradient: 'from-indigo-500/80 via-violet-500/70 to-fuchsia-400/70',
+  },
+  {
+    href: FEATURED_QUIET_URL,
+    label: 'Quiet pick',
+    title: 'Evening reset',
+    description: 'A simple option for a calmer night routine before sleep.',
+    buttonLabel: 'View',
+    thumbnail: 'QT',
+    gradient: 'from-amber-500/80 via-orange-500/70 to-rose-400/70',
+  },
+  {
+    href: FEATURED_HUB_URL,
+    label: 'More picks',
+    title: 'Helpful support',
+    description: 'Another useful option if you want a simple extra resource.',
+    buttonLabel: 'Open',
+    thumbnail: 'HS',
+    gradient: 'from-sky-500/80 via-blue-500/70 to-indigo-400/70',
+    imageSrc: FEATURED_HUB_IMAGE,
+    imageAlt: 'Helpful support product image',
+  },
+  {
+    href: FEATURED_SLEEP_URL,
+    label: 'Sleep boost',
+    title: 'Improve your sleep',
+    description: 'A simple sleep-focused recommendation for the sidebar.',
+    buttonLabel: 'View',
+    thumbnail: 'SL',
+    gradient: 'from-cyan-500/80 via-sky-500/70 to-blue-400/70',
+  },
+  {
+    href: FEATURED_NATURAL_URL,
+    label: 'Wellness pick',
+    title: 'Natural support',
+    description: 'A wellness option to round out the recommendations area.',
+    buttonLabel: 'View',
+    thumbnail: 'NL',
+    gradient: 'from-lime-500/80 via-emerald-500/70 to-green-400/70',
+    imageSrc: FEATURED_NATURAL_IMAGE,
+    imageAlt: 'Natural support product image',
+  },
+  {
+    href: FEATURED_REWARX_URL,
+    label: 'New pick',
+    title: 'Improve your sleep',
+    description: 'A simple sleep-focused recommendation for the sidebar.',
+    buttonLabel: 'View',
+    thumbnail: 'RX',
+    gradient: 'from-rose-500/80 via-pink-500/70 to-fuchsia-400/70',
+  },
+  {
+    href: FEATURED_REWARX_STUDIO_URL,
+    label: 'Studio pick',
+    title: 'AI Product Photography',
+    description: 'Commercial-quality product visuals for stores and marketplaces.',
+    buttonLabel: 'View',
+    thumbnail: 'RW',
+    gradient: 'from-slate-500/80 via-zinc-500/70 to-neutral-400/70',
+  },
+];
+
+function createId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-const LOCAL_HISTORY_KEY = 'dream_history';
-
-function buildLocalInterpretation(dreamText: string, focus: string, tone: string) {
+function summarizeDream(dreamText: string, notes: string, focus: string, tone: string) {
   const lower = dreamText.toLowerCase();
+  const noteLower = notes.toLowerCase();
   const clues: string[] = [];
+  const noteSignals: string[] = [];
 
-  if (/(fall|falling|drop|dropped)/.test(lower)) clues.push('a loss of control or a fear of slipping backward');
-  if (/(water|ocean|river|rain|flood|swim)/.test(lower)) clues.push('emotions that are active, deep, or changing');
-  if (/(teeth|tooth)/.test(lower)) clues.push('confidence, change, or a concern about how you are being seen');
-  if (/(chase|running|hiding|escape)/.test(lower)) clues.push('urgency, pressure, or something you may be avoiding');
+  if (/(fall|falling|drop|dropped)/.test(lower)) clues.push('pressure, uncertainty, or a fear of losing your footing');
+  if (/(water|ocean|river|rain|flood|swim)/.test(lower)) clues.push('emotions that are deep, active, or changing');
+  if (/(teeth|tooth)/.test(lower)) clues.push('confidence, change, or concern about how you are being seen');
+  if (/(chase|running|hiding|escape)/.test(lower)) clues.push('urgency, avoidance, or something that wants your attention');
   if (/(house|room|home|door)/.test(lower)) clues.push('your inner life, identity, or a specific area of life');
+  if (/(snake|snakes|animal)/.test(lower)) clues.push('instincts, alertness, or a situation that feels unpredictable');
+  if (/(car|drive|driving|road|traffic)/.test(lower)) clues.push('direction, momentum, or control over your path');
+  if (/(school|class|test|exam|teacher)/.test(lower)) clues.push('learning, evaluation, or a situation where you feel tested');
+  if (/(baby|child|pregnant)/.test(lower)) clues.push('something new that needs care, patience, or protection');
+  if (/(death|dying|funeral)/.test(lower)) clues.push('an ending, transition, or major change');
 
-  const clueSentence =
-    clues.length > 0
-      ? `The strongest symbols suggest ${clues.join(', ')}.`
-      : 'The dream seems to be asking for context from your waking life and any repeated symbols.';
+  if (/(recurr|repeat|again|same)/.test(noteLower)) noteSignals.push('your notes suggest a recurring pattern worth tracking');
+  if (/(nightmare|scary|fear|anxious)/.test(noteLower)) noteSignals.push('the emotional tone points toward stress that wants attention');
+  if (/(lucid|aware|control)/.test(noteLower)) noteSignals.push('your awareness in the dream may be part of the message');
+  if (/(book|symbol|dictionary|meaning)/.test(noteLower)) noteSignals.push('your notes point toward symbols you want to compare later');
 
-  return [
-    `Local ${tone.toLowerCase()} reading for ${focus.toLowerCase()}:`,
-    clueSentence,
-    'Look for the feeling of the dream, not just the objects inside it.',
-    'If this keeps repeating, it may be pointing to a pattern worth tracking in the vault.',
-  ].join(' ');
+  const intro = `${tone} reading for ${focus.toLowerCase()}.`;
+  const clueSentence = clues.length
+    ? `The strongest symbols point to ${clues.join(', ')}.`
+    : 'The dream seems to ask for context from your waking life, especially the feeling it leaves behind.';
+  const noteSentence = noteSignals.length
+    ? `Your notes add: ${noteSignals.join(', ')}.`
+    : 'Keeping notes on how the dream felt will make the next reading sharper.';
+
+  return [intro, clueSentence, noteSentence].join(' ');
+}
+
+function pickTitle(dream: string) {
+  const cleaned = dream.trim().replace(/\s+/g, ' ');
+  if (!cleaned) return 'Untitled dream';
+
+  return cleaned.length > 42 ? `${cleaned.slice(0, 42).trimEnd()}...` : cleaned;
 }
 
 export default function DreamJournal() {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [pendingDream, setPendingDream] = React.useState<Dream | null>(null);
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editingDreamId, setEditingDreamId] = React.useState<string | null>(null);
-  const [dreamText, setDreamText] = React.useState('');
-  const [isRecording, setIsRecording] = React.useState(false);
-  const [isInterpreting, setIsInterpreting] = React.useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = React.useState(false);
-  const [interpretation, setInterpretation] = React.useState<string | null>(null);
-  const [currentImageUrl, setCurrentImageUrl] = React.useState<string | null>(null);
-  const [history, setHistory] = React.useState<Dream[]>([]);
-  const [showHistory, setShowHistory] = React.useState(false);
-  const [showSettings, setShowSettings] = React.useState(false);
-  const [showMonetization, setShowMonetization] = React.useState(true);
-  const [showFocusPanel, setShowFocusPanel] = React.useState(false);
-  const [dreamFocus, setDreamFocus] = React.useState('General');
-  const [dreamTone, setDreamTone] = React.useState('Comforting');
-  const guestMode = true;
+  const [dream, setDream] = useState('');
+  const [dreamBookNotes, setDreamBookNotes] = useState('');
+  const [title, setTitle] = useState('');
+  const [interpretation, setInterpretation] = useState('');
+  const [vault, setVault] = useState<VaultEntry[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dreamFocus, setDreamFocus] = useState('General');
+  const [dreamTone, setDreamTone] = useState('Comforting');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isInterpreting, setIsInterpreting] = useState(false);
 
-  // Auth listener
-  React.useEffect(() => {
-    if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
 
-  // Load theme from localStorage
-  React.useEffect(() => {
-    localStorage.removeItem('dream_theme');
-  }, []);
-
-
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [isSharing, setIsSharing] = React.useState(false);
-  const [isCopied, setIsCopied] = React.useState(false);
-  const [generationStatus, setGenerationStatus] = React.useState('Analyzing Symbols...');
-  const [audioContext, setAudioContext] = React.useState<AudioContext | null>(null);
-  const [audioBufferSource, setAudioBufferSource] = React.useState<AudioBufferSourceNode | null>(null);
-
-  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
-  const chunksRef = React.useRef<Blob[]>([]);
-
-  // Parallax effects
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  const springConfig = { damping: 25, stiffness: 150 };
-  const smoothX = useSpring(mouseX, springConfig);
-  const smoothY = useSpring(mouseY, springConfig);
-
-  const bgX = useTransform(smoothX, [-500, 500], [20, -20]);
-  const bgY = useTransform(smoothY, [-500, 500], [20, -20]);
-  const bg2X = useTransform(smoothX, [-500, 500], [-30, 30]);
-  const bg2Y = useTransform(smoothY, [-500, 500], [-30, 30]);
-
-  // 3D Tilt for main container
-  const rotateX = useTransform(smoothY, [-500, 500], [7, -7]);
-  const rotateY = useTransform(smoothX, [-500, 500], [-7, 7]);
-
-  React.useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseX.set(e.clientX - window.innerWidth / 2);
-      mouseY.set(e.clientY - window.innerHeight / 2);
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
-
-  // Load history from Firestore
-  React.useEffect(() => {
-    if (user && db) {
-      const loadHistory = async () => {
-        const q = query(collection(db, 'dreams'), where('userId', '==', user.uid));
-        const querySnapshot = await getDocs(q);
-        const dreams: Dream[] = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Dream));
-        setHistory(dreams);
-      };
-      loadHistory();
-    } else {
-      try {
-        const storedHistory = localStorage.getItem(LOCAL_HISTORY_KEY);
-        setHistory(storedHistory ? JSON.parse(storedHistory) : []);
-      } catch {
-        setHistory([]);
+      const parsed = JSON.parse(stored) as VaultEntry[];
+      if (Array.isArray(parsed)) {
+        setVault(parsed);
       }
-    }
-  }, [user]);
-
-  // Save history to localStorage
-  React.useEffect(() => {
-    localStorage.setItem('dream_history', JSON.stringify(history));
-  }, [history]);
-
-  // Cycle through generation statuses
-  React.useEffect(() => {
-    if (isGeneratingImage) {
-      const statuses = [
-        'Analyzing Symbols...', 
-        'Distilling Emotions...', 
-        'Painting Dreamscape...', 
-        'Adding Ethereal Glow...', 
-        'Finalizing Vision...'
-      ];
-      let i = 0;
-      const interval = setInterval(() => {
-        i = (i + 1) % statuses.length;
-        setGenerationStatus(statuses[i]);
-      }, 2500);
-      return () => clearInterval(interval);
-    } else {
-      setGenerationStatus('Analyzing Symbols...');
-    }
-  }, [isGeneratingImage]);
-
-  // Request notification permission and schedule daily reminder
-  React.useEffect(() => {
-    if ('Notification' in window) {
-      Notification.requestPermission().then(permission => {
-        if (permission === 'granted') {
-          const scheduleReminder = () => {
-            const now = new Date();
-            const targetTime = new Date();
-            targetTime.setHours(8, 0, 0, 0); // Set to 8:00 AM
-
-            if (now > targetTime) {
-              targetTime.setDate(targetTime.getDate() + 1);
-            }
-
-            const delay = targetTime.getTime() - now.getTime();
-            setTimeout(() => {
-              new Notification("Time to record your dream!", {
-                body: "What did you see in your dreams last night?",
-                icon: "/favicon.ico"
-              });
-              scheduleReminder();
-            }, delay);
-          };
-          scheduleReminder();
-        }
-      });
+    } catch {
+      setVault([]);
     }
   }, []);
 
-  const startRecording = async () => {
+  useEffect(() => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.readAsDataURL(blob);
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(',')[1];
-          setIsInterpreting(true);
-          try {
-            const transcription = await transcribeAudio(base64, 'audio/webm');
-            setDreamText((prev) => prev + (prev ? ' ' : '') + transcription);
-          } catch (error) {
-            console.error("Transcription failed", error);
-          } finally {
-            setIsInterpreting(false);
-          }
-        };
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Failed to start recording", err);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(vault));
+    } catch {
+      // Ignore storage failures so the app still works offline.
     }
-  };
+  }, [vault]);
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-    }
-  };
-
-  const handleNewDream = () => {
-    setDreamText('');
-    setInterpretation(null);
-    setCurrentImageUrl(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingDreamId) return;
-    setHistory(history.map(dream => dream.id === editingDreamId ? { ...dream, text: dreamText, interpretation: interpretation || undefined } : dream));
-    setIsEditing(false);
-    setEditingDreamId(null);
-    setDreamText('');
-    setInterpretation(null);
-    setCurrentImageUrl(null);
-  };
-
-  const handleInterpret = async () => {
-    if (!dreamText.trim()) return;
-    setIsInterpreting(true);
-    setIsGeneratingImage(Boolean(user));
-    setInterpretation(null);
-    setCurrentImageUrl(null);
-    setPendingDream(null);
-    
-    try {
-      let interpretationResult = buildLocalInterpretation(dreamText, dreamFocus, dreamTone);
-      let imageUrlResult: string | null = null;
-
-      if (user) {
-        try {
-          const [serverInterpretation, serverImageUrl] = await Promise.all([
-            interpretDream(dreamText, dreamFocus, dreamTone),
-            generateDreamImage(dreamText).catch(err => {
-              console.warn("Dream image generation failed or quota exceeded:", err);
-              return null;
-            })
-          ]);
-
-          interpretationResult = serverInterpretation;
-          imageUrlResult = serverImageUrl;
-        } catch (error) {
-          console.warn("Server interpretation failed, using local fallback", error);
-        }
-      }
-
-      setInterpretation(interpretationResult);
-      setCurrentImageUrl(imageUrlResult);
-      
-      const newDream: Dream = {
-        id: Date.now().toString(),
-        date: new Date().toLocaleString(),
-        text: dreamText,
-        interpretation: interpretationResult,
-        imageUrl: imageUrlResult || undefined
-      };
-      setPendingDream(newDream);
-    } catch (error) {
-      console.error("Interpretation or image generation failed", error);
-      setInterpretation("The dream realm is currently clouded. Please try again in a moment.");
-    } finally {
-      setIsInterpreting(false);
-      setIsGeneratingImage(false);
-    }
-  };
-
-  const saveToVault = async () => {
-    if (!pendingDream) return;
-
-    if (!user || !db) {
-      setHistory([pendingDream, ...history]);
-      setPendingDream(null);
-      handleNewDream();
-      return;
-    }
-    
-    try {
-      const docRef = await addDoc(collection(db, 'dreams'), {
-        ...pendingDream,
-        userId: user.uid
-      });
-      setHistory([{ ...pendingDream, id: docRef.id }, ...history]);
-      setPendingDream(null);
-      handleNewDream();
-    } catch (error) {
-      console.error("Failed to save dream to Firestore", error);
-    }
-  };
-
-  const handleSpeak = async () => {
-    if (!interpretation || isPlaying) {
-      if (isPlaying && audioBufferSource) {
-        audioBufferSource.stop();
-        setIsPlaying(false);
-      }
+  useEffect(() => {
+    if (!GA_MEASUREMENT_ID || typeof window === 'undefined') {
       return;
     }
 
-    setIsPlaying(true);
-    try {
-      if (!user) {
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(interpretation);
-          utterance.rate = 0.96;
-          utterance.pitch = 1;
-          utterance.onend = () => setIsPlaying(false);
-          utterance.onerror = () => setIsPlaying(false);
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
-          return;
-        }
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}"]`,
+    );
 
-        setIsPlaying(false);
-        return;
-      }
-
-      const audioData = await speakInterpretation(interpretation);
-      if (!audioData) {
-        setIsPlaying(false);
-        return;
-      }
-
-      const ctx = audioContext || new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (!audioContext) setAudioContext(ctx);
-
-      // PCM 24000Hz 16-bit Mono
-      const buffer = ctx.createBuffer(1, audioData.length / 2, 24000);
-      const channelData = buffer.getChannelData(0);
-      const view = new DataView(audioData.buffer);
-      
-      for (let i = 0; i < channelData.length; i++) {
-        // Int16 to Float32
-        channelData[i] = view.getInt16(i * 2, true) / 32768;
-      }
-
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.onended = () => setIsPlaying(false);
-      source.start();
-      setAudioBufferSource(source);
-    } catch (error) {
-      console.error("TTS failed", error);
-      setIsPlaying(false);
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+      document.head.appendChild(script);
     }
-  };
 
-  const handleCopy = async () => {
-    if (!interpretation) return;
-    try {
-      await navigator.clipboard.writeText(interpretation);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (error) {
-      console.error('Error copying:', error);
+    const analyticsWindow = window as Window & { dataLayer: unknown[][] };
+    analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
+
+    function gtag(...args: unknown[]) {
+      analyticsWindow.dataLayer.push(args);
     }
-  };
 
-  const handleShare = async () => {
-    if (!interpretation) return;
+    gtag('js', new Date());
+    gtag('config', GA_MEASUREMENT_ID, { send_page_view: true });
+  }, []);
 
-    const shareData = {
-      title: 'My Dream Interpretation',
-      text: `I just interpreted my dream: "${dreamText.substring(0, 100)}..."\n\nInterpretation: ${interpretation.substring(0, 200)}...`,
-      url: window.location.href,
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(`${shareData.text}\n\nRead more at: ${shareData.url}`);
-        setIsSharing(true);
-        setTimeout(() => setIsSharing(false), 2000);
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
-  };
-
-  const clearHistory = () => {
-    if (confirm("Are you sure you want to clear your entire dream journal?")) {
-      setHistory([]);
-    }
-  };
-
-  const deleteEntry = (id: string) => {
-    setHistory(history.filter(item => item.id !== id));
-  };
-
-  const filteredHistory = history.filter(dream => 
-    dream.text.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (dream.interpretation?.toLowerCase().includes(searchQuery.toLowerCase()))
+  const freeSlotsLeft = Math.max(0, FREE_ENTRY_LIMIT - vault.length);
+  const orderedVault = useMemo(
+    () => [...vault].sort((a, b) => Number(b.starred) - Number(a.starred) || b.createdAt.localeCompare(a.createdAt)),
+    [vault],
   );
+  const liveTitle = title.trim() || (dream.trim() ? pickTitle(dream) : '');
+  const liveInterpretation = dream.trim()
+    ? summarizeDream(dream, dreamBookNotes, dreamFocus, dreamTone)
+    : '';
+  const displayedInterpretation = interpretation || liveInterpretation;
+  const statusLabel = isInterpreting
+    ? 'Reading your dream...'
+    : dream.trim()
+      ? 'Live reading ready'
+      : 'Start typing for a reading';
+
+  async function handleInterpret(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const cleanDream = dream.trim();
+    if (!cleanDream || isInterpreting) return;
+
+    setIsInterpreting(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+
+    const nextInterpretation = summarizeDream(cleanDream, dreamBookNotes, dreamFocus, dreamTone);
+    setInterpretation(nextInterpretation);
+    setTitle((current) => current.trim() || pickTitle(cleanDream));
+    setSelectedId(null);
+    setIsInterpreting(false);
+  }
+
+  function handleSave() {
+    const cleanDream = dream.trim();
+    if (!cleanDream) return;
+
+    const nextInterpretation = interpretation.trim() || summarizeDream(cleanDream, dreamBookNotes, dreamFocus, dreamTone);
+    const nextEntry: VaultEntry = {
+      id: createId(),
+      title: title.trim() || pickTitle(cleanDream),
+      dream: cleanDream,
+      dreamBookNotes: dreamBookNotes.trim(),
+      interpretation: nextInterpretation,
+      createdAt: new Date().toISOString(),
+      starred: false,
+    };
+
+    setVault((current) => [nextEntry, ...current]);
+    setSelectedId(nextEntry.id);
+    setInterpretation(nextInterpretation);
+  }
+
+  function handleLoad(entry: VaultEntry) {
+    setDream(entry.dream);
+    setDreamBookNotes(entry.dreamBookNotes);
+    setTitle(entry.title);
+    setInterpretation(entry.interpretation);
+    setSelectedId(entry.id);
+  }
+
+  function toggleStar(id: string) {
+    setVault((current) =>
+      current.map((entry) => (entry.id === id ? { ...entry, starred: !entry.starred } : entry)),
+    );
+  }
+
+  function removeEntry(id: string) {
+    setVault((current) => current.filter((entry) => entry.id !== id));
+    if (selectedId === id) {
+      setSelectedId(null);
+    }
+  }
+
+  const visibleVault = orderedVault.filter((entry) => {
+    const search = searchQuery.toLowerCase();
+    return (
+      entry.title.toLowerCase().includes(search) ||
+      entry.dream.toLowerCase().includes(search) ||
+      entry.interpretation.toLowerCase().includes(search)
+    );
+  });
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)] font-sans selection:bg-[var(--accent-color)]/30">
-      {/* Atmospheric Background */}
-      <div className="fixed inset-0 z-0">
-        <motion.div 
-          style={{ x: bgX, y: bgY }}
-          animate={{
-            scale: [1, 1.25, 1],
-            opacity: [0.1, 0.25, 0.1]
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-10%] left-[-5%] w-[80%] h-[80%] rounded-full bg-purple-600/10 blur-[180px]"
-        />
-        <motion.div 
-          style={{ x: bg2X, y: bg2Y }}
-          animate={{
-            scale: [1.25, 1, 1.25],
-            opacity: [0.1, 0.2, 0.1]
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-[-5%] right-[-5%] w-[70%] h-[70%] rounded-full bg-violet-600/10 blur-[160px]"
-        />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(88,28,135,0.05)_0%,rgba(0,1,3,0.99)_100%)]" />
-        
-        {/* Brighter Sparkly Stars */}
-        <div className="absolute inset-0 pointer-events-none">
-          {[...Array(80)].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0 }}
-              animate={{ 
-                opacity: [0, 0.6, 1, 0.6, 0],
-                scale: [0.4, 1.2, 0.9, 1.2, 0.4],
-              }}
-              transition={{
-                duration: 6 + Math.random() * 10,
-                repeat: Infinity,
-                delay: Math.random() * 20,
-                ease: "easeInOut"
-              }}
-              className="absolute w-0.5 h-0.5 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,0.9),0_0_20px_rgba(168,85,247,0.4)]"
-              style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`
-              }}
-            />
-          ))}
-        </div>
+    <main className="relative min-h-screen overflow-hidden bg-celestial-gradient text-slate-100">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="nebula-glow-1 absolute -left-24 top-[-8rem] h-80 w-80 rounded-full bg-fuchsia-500/20 blur-3xl" />
+        <div className="nebula-glow-2 absolute right-[-6rem] top-24 h-96 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="shooting-star-emitter" />
+        <div className="shooting-star-emitter-2" />
       </div>
 
-      {/* Dream Focus Panel */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={() => setShowFocusPanel(!showFocusPanel)}
-          className={cn(
-            "p-3 rounded-full transition-all duration-500 border border-white/10 shadow-lg",
-            showFocusPanel ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-300 hover:text-white"
-          )}
-        >
-          <Sparkles size={20} />
-        </button>
-        {showFocusPanel && (
-          <div className="absolute bottom-16 right-0 w-64 p-6 bg-slate-900/80 border border-white/10 rounded-3xl shadow-2xl backdrop-blur-2xl">
-            <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Dream Focus</h3>
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {['General', 'Love', 'Work', 'Family'].map((focus) => (
-                <button
-                  key={focus}
-                  onClick={() => setDreamFocus(focus)}
-                  className={cn(
-                    "px-4 py-2 rounded-full text-xs font-medium transition-all",
-                    dreamFocus === focus 
-                      ? "bg-purple-600 text-white" 
-                      : "bg-slate-800/50 text-slate-300 hover:bg-slate-700 hover:text-white"
-                  )}
-                >
-                  {focus}
-                </button>
-              ))}
-            </div>
-            
-            <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Interpretation Tone</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {['Comforting', 'Analytical', 'Spiritual', 'Direct'].map((tone) => (
-                <button
-                  key={tone}
-                  onClick={() => setDreamTone(tone)}
-                  className={cn(
-                    "px-4 py-2 rounded-full text-xs font-medium transition-all",
-                    dreamTone === tone 
-                      ? "bg-purple-600 text-white" 
-                      : "bg-slate-800/50 text-slate-300 hover:bg-slate-700 hover:text-white"
-                  )}
-                >
-                  {tone}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 md:py-20">
-        <header className="mb-16 relative">
-          <div className="flex justify-end items-center gap-4 p-4">
-            <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-white p-2">
-                <Settings size={20} />
-            </button>
-            {firebaseEnabled && auth ? (
-              user ? (
-                <button onClick={() => signOut(auth)} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white">Sign Out</button>
-              ) : (
-                <button onClick={() => auth && signInWithPopup(auth, googleProvider)} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white">Sign In</button>
-              )
-            ) : (
-              <div className="rounded-full border border-amber-400/20 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-100">
-                Local preview
-              </div>
-            )}
-          </div>
-          <div className="text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative inline-block"
-          >
-            {/* Beaming Glow */}
-            <div className="absolute inset-0 -z-10 bg-purple-500 blur-[100px] opacity-20 scale-[2.5] rounded-full" />
-            
-            <h1 
-              className="text-4xl md:text-7xl font-display font-black tracking-tighter mb-4 px-4 text-white relative leading-tight"
-              style={{
-                textShadow: '0 2px 0 #4c1d95, 0 4px 0 #2e1065, 0 6px 0 #000, 0 8px 0 #000, 0 15px 30px rgba(0,0,0,0.8)',
-                filter: 'drop-shadow(0 0 25px rgba(168,85,247,0.4))'
-              }}
-            >
-              Dream Interpretation Dictionary
-            </h1>
-            <p className="text-purple-300 text-[10px] md:text-xs uppercase tracking-[0.6em] font-bold">
-              Find the Meaning to what you're Dreaming
-            </p>
-          </motion.div>
-          </div>
+      <section className="relative mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
+        <header className="max-w-3xl">
+          <p className="mb-3 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.32em] text-slate-300">
+            Dream Interpretation Dictionary
+          </p>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+            Track dreams, interpret symbols, and build your vault.
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
+            Write the dream, get an instant reading, save the ones worth revisiting, and keep the revenue paths visible without cluttering the page.
+          </p>
         </header>
 
-        {showSettings && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
-                <div className="bg-slate-900 border border-white/10 rounded-3xl p-8 max-w-sm w-full">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-white">Settings</h2>
-                        <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
-                    </div>
-                    <div className="space-y-4">
-                        <label className="flex items-center justify-between text-slate-300">
-                            Enable Notifications
-                            <input type="checkbox" className="accent-purple-600" defaultChecked />
-                        </label>
-                        <button
-                          onClick={() => setShowMonetization((value) => !value)}
-                          className="w-full rounded-xl bg-slate-800/80 py-3 font-semibold text-white transition-colors hover:bg-slate-700"
-                        >
-                           Dream Vault Options
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        <main className="space-y-12">
-          {/* Input Section */}
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{ rotateX, rotateY, perspective: 1000 }}
-            transition={{ duration: 1, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="group relative backdrop-blur-md bg-white/5 border border-white/10 rounded-[48px] p-8"
-          >
-            {/* Glistening Border Effect */}
-            <div className="absolute -inset-[1px] rounded-[48px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[1px]" />
-            <motion.div 
-              animate={{
-                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="absolute -inset-[1px] rounded-[48px] bg-[length:200%_auto] bg-gradient-to-r from-purple-500/20 via-white/40 to-purple-500/20 opacity-30"
-              style={{ maskImage: 'linear-gradient(black, black), linear-gradient(black, black)', maskClip: 'content-box, border-box', maskComposite: 'exclude', padding: '1px' }}
-            />
-
-            <div className="relative backdrop-blur-3xl bg-slate-900/60 border border-white/10 rounded-[48px] p-6 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
-              {/* Inner Glow */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-              
-              <div className="relative">
-                {!user && !guestMode ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <div className="relative mb-6">
-                      <div className="absolute inset-0 bg-purple-500 blur-2xl opacity-20 scale-[2.5] rounded-full" />
-                      <Sparkles className="w-12 h-12 text-purple-400 relative" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-2 leading-tight">Step into the Subconscious</h2>
-                    <p className="text-slate-400 text-sm max-w-sm mb-8 leading-relaxed">
-                      Sign in to interpret your dreams, visualize them with advanced AI, and securely store your insights in the Dream Vault.
-                    </p>
-                    <motion.button
-                      onClick={() => auth && signInWithPopup(auth, googleProvider)}
-                      className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full font-bold shadow-[0_15px_30px_rgba(147,51,234,0.3)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.4)] transition-all cursor-pointer border border-purple-400/20 active:scale-95"
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <svg className="w-5 h-5 text-current fill-current" viewBox="0 0 24 24">
-                        <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.555 0-6.44-2.885-6.44-6.44s2.885-6.44 6.44-6.44c1.633 0 3.12.608 4.267 1.633l3.23-3.23C19.347 .93 15.99 0 12.24 0 5.48 0 0 5.48 0 12.24s5.48 12.24 12.24 12.24c6.12 0 11.56-4.32 11.56-12.24 0-.82-.08-1.5-.2-1.955H12.24z" />
-                      </svg>
-                      Continue with Google
-                    </motion.button>
-                  </div>
-                ) : null}
-                {!firebaseEnabled && (
-                  <div className="mb-6 overflow-hidden rounded-[28px] border border-amber-400/20 bg-gradient-to-r from-amber-500/10 via-white/5 to-sky-500/10 p-[1px]">
-                    <div className="rounded-[27px] bg-slate-950/70 px-5 py-4 text-center">
-                      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-100">
-                        <Check size={12} />
-                        Local preview mode
-                      </div>
-                      <p className="text-sm text-slate-200">
-                        The app is live and usable right now. Cloud sync will turn on automatically once the Firebase
-                        environment key is added in deployment.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {firebaseEnabled && !user && (
-                  <div className="mb-6 rounded-3xl border border-white/10 bg-sky-500/10 px-4 py-3 text-center text-xs leading-5 text-slate-300">
-                    Guest mode is on. You can interpret and save dreams locally now, then sign in later for cloud sync,
-                    voice tools, and image generation.
-                  </div>
-                )}
-                {history.length > 0 && !showHistory && !interpretation && (
-                  <button
-                    onClick={() => {
-                      const lastDream = history[0];
-                      setDreamText(lastDream.text);
-                      setInterpretation(lastDream.interpretation || null);
-                      setCurrentImageUrl(lastDream.imageUrl || null);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="mb-6 flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300 transition-colors"
-                  >
-                    <History size={14} /> Revisit Last Dream
-                  </button>
-                )}
-                <textarea
-                  value={dreamText}
-                  onChange={(e) => setDreamText(e.target.value)}
-                  placeholder="Describe your dream... What did you see? How did you feel?"
-                  className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg md:text-xl placeholder:text-slate-400 text-slate-100 resize-none leading-relaxed font-light"
-                />
-                <p className="mt-2 text-[11px] text-slate-500 italic max-w-lg">
-                  Patterns over time reveal the subconscious. Secure your insights in the 
-                  <button 
-                    onClick={() => setShowHistory(true)}
-                    className="text-purple-400 hover:text-purple-300 font-bold ml-1 transition-colors"
-                  >
-                    Dream Vault
-                  </button> to track your inner journey and personal growth.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-6 border-t border-white/5 gap-4">
-                  <div className="flex gap-3">
-                    {user && (
-                      <motion.button
-                        onClick={isRecording ? stopRecording : startRecording}
-                        className={cn(
-                          "p-4 rounded-full transition-all duration-500 shadow-lg relative overflow-hidden group/btn",
-                          isRecording 
-                            ? "bg-red-500/20 text-red-400 animate-pulse ring-2 ring-red-500/50" 
-                            : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-sky-300 border border-white/5"
-                        )}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        title={isRecording ? "Stop recording" : "Record your dream"}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                        {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-                      </motion.button>
-                    )}
-                    
-                    <motion.button
-                      onClick={() => setShowHistory(!showHistory)}
-                      className={cn(
-                        "p-4 rounded-full transition-all duration-500 bg-slate-800/50 border border-white/5 shadow-lg",
-                        showHistory ? "text-sky-300 bg-sky-500/10 border-sky-500/20" : "text-slate-300 hover:text-sky-300 hover:bg-slate-700/50"
-                      )}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      title="View history"
-                    >
-                      <History size={20} />
-                    </motion.button>
-                  </div>
-
-                  <motion.button
-                    onClick={isEditing ? handleSaveEdit : handleInterpret}
-                    disabled={!dreamText.trim() || isInterpreting}
-                    className="flex items-center justify-center gap-3 px-8 py-4 w-full sm:w-auto bg-white text-purple-600 rounded-full font-black shadow-[0_20px_50px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_60px_rgba(255,255,255,0.5),inset_0_-8px_16px_rgba(0,0,0,0.05)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 group border-b-4 border-purple-50"
-                    whileHover={{ y: -5 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {isInterpreting ? (
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                      >
-                        <Sparkles size={20} className="text-purple-500" />
-                      </motion.div>
-                    ) : <Sparkles size={20} className="group-hover:animate-pulse text-purple-500" />}
-                    <span className="tracking-tight text-md uppercase font-black">{isEditing ? "Save Changes" : (isInterpreting ? "Interpreting..." : "Interpret Dream")}</span>
-                  </motion.button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {showMonetization && (
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="space-y-6">
+            <form
+              onSubmit={handleInterpret}
+              className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
             >
-              <div className="rounded-[32px] border border-white/10 bg-slate-900/60 p-5 backdrop-blur-xl">
-                <p className="text-[10px] uppercase tracking-[0.35em] text-sky-400 font-black mb-2">AdSense Ready</p>
-                <h3 className="text-lg font-semibold text-white mb-2">Reserve ad placements now</h3>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  We can drop AdSense units into these slots as soon as the account is approved, without redesigning the page later.
-                </p>
-                <div className="mt-4 grid grid-cols-1 gap-2">
-                  <div className="rounded-2xl border border-dashed border-sky-500/30 bg-sky-500/5 px-3 py-3 text-xs text-sky-200">
-                    Top banner ad slot
-                  </div>
-                  <div className="rounded-2xl border border-dashed border-sky-500/30 bg-sky-500/5 px-3 py-3 text-xs text-sky-200">
-                    In-content rectangle
-                  </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Main journal</p>
+                  <h2 className="mt-2 font-display text-2xl text-white">Write a dream and get a reading</h2>
+                </div>
+                <div className="rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100">
+                  {statusLabel}
                 </div>
               </div>
 
-              <div className="rounded-[32px] border border-white/10 bg-slate-900/60 p-5 backdrop-blur-xl">
-                <p className="text-[10px] uppercase tracking-[0.35em] text-emerald-400 font-black mb-2">Affiliate Stack</p>
-                <h3 className="text-lg font-semibold text-white mb-2">Best for fast early revenue</h3>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  We can add dream journals, notebooks, sleep tools, or spiritual books here and swap in Impact links when you’re ready.
-                </p>
-                <div className="mt-4 rounded-2xl border border-dashed border-emerald-500/30 bg-emerald-500/5 px-3 py-3 text-xs text-emerald-200">
-                  Partner recommendation card
-                </div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-slate-200">Dream title</span>
+                  <input
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
+                    placeholder="Optional title"
+                  />
+                  <span className="text-xs text-slate-500">Give the dream a short name so you can find it later.</span>
+                </label>
+
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-slate-200">Dream book notes</span>
+                  <input
+                    value={dreamBookNotes}
+                    onChange={(event) => setDreamBookNotes(event.target.value)}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/60 focus:bg-white/10"
+                    placeholder="Symbols, book references, or a quick insight"
+                  />
+                  <span className="text-xs text-slate-500">Capture symbols, book references, or a quick insight.</span>
+                </label>
               </div>
 
-              <div className="rounded-[32px] border border-white/10 bg-slate-900/60 p-5 backdrop-blur-xl">
-                <p className="text-[10px] uppercase tracking-[0.35em] text-purple-400 font-black mb-2">Dream Vault Pro</p>
-                <h3 className="text-lg font-semibold text-white mb-2">Subscription tier without friction</h3>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  Keep the free journal open now, then add a paid tier later for cloud sync, voice tools, and extra interpretations.
-                </p>
-                <div className="mt-4 rounded-2xl border border-dashed border-purple-500/30 bg-purple-500/5 px-3 py-3 text-xs text-purple-200">
-                  Pro upgrade CTA
-                </div>
-              </div>
-            </motion.section>
-          )}
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-slate-200">Dream focus</span>
+                  <select
+                    value={dreamFocus}
+                    onChange={(event) => setDreamFocus(event.target.value)}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/60 focus:bg-white/10"
+                  >
+                    <option className="bg-slate-900" value="General">General</option>
+                    <option className="bg-slate-900" value="Love">Love</option>
+                    <option className="bg-slate-900" value="Work">Work</option>
+                    <option className="bg-slate-900" value="Family">Family</option>
+                  </select>
+                </label>
 
-          {/* Interpretation Result */}
-          <AnimatePresence mode="wait">
-            {(interpretation || isGeneratingImage) && (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, y: 50, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                style={{ rotateX, rotateY, perspective: 1000 }}
-                exit={{ opacity: 0, y: -20, scale: 0.98 }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                className="group relative"
-              >
-                {/* Glistening Border Effect */}
-                <div className="absolute -inset-[1px] rounded-[48px] bg-gradient-to-r from-transparent via-sky-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[1px]" />
-                <motion.div 
-                  animate={{
-                    backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-                  }}
-                  transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                  className="absolute -inset-[1px] rounded-[48px] bg-[length:200%_auto] bg-gradient-to-r from-sky-500/20 via-white/30 to-sky-500/20 opacity-20"
-                  style={{ maskImage: 'linear-gradient(black, black), linear-gradient(black, black)', maskClip: 'content-box, border-box', maskComposite: 'exclude', padding: '1px' }}
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-slate-200">Reading tone</span>
+                  <select
+                    value={dreamTone}
+                    onChange={(event) => setDreamTone(event.target.value)}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-400/60 focus:bg-white/10"
+                  >
+                    <option className="bg-slate-900" value="Comforting">Comforting</option>
+                    <option className="bg-slate-900" value="Analytical">Analytical</option>
+                    <option className="bg-slate-900" value="Spiritual">Spiritual</option>
+                    <option className="bg-slate-900" value="Direct">Direct</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="mt-4 flex flex-col gap-2">
+                <span className="text-sm font-medium text-slate-200">Describe the dream</span>
+                <textarea
+                  value={dream}
+                  onChange={(event) => setDream(event.target.value)}
+                  rows={8}
+                  className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
+                  placeholder="What happened, who was there, and how did it feel?"
                 />
+                <span className="text-xs text-slate-500">Include what happened, who was there, and how it felt.</span>
+              </label>
 
-                <div className="relative backdrop-blur-3xl bg-slate-900/60 border border-white/10 rounded-[48px] p-8 md:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-                  <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-xs uppercase tracking-[0.5em] text-sky-400 font-black">
-                      The Interpretation
-                    </h2>
-                    <div className="flex flex-wrap gap-2">
-                      {pendingDream && (
-                        <button
-                          onClick={saveToVault}
-                          className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border bg-slate-800/50 text-emerald-400 border-emerald-500/30 hover:bg-emerald-900/30"
-                        >
-                          <Check size={14} />
-                          Save
-                        </button>
-                      )}
-                      <button
-                        onClick={handleNewDream}
-                        className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border bg-slate-800/50 text-purple-400 border-purple-500/30 hover:bg-purple-900/30"
-                      >
-                        <Sparkles size={14} />
-                        New Dream
-                      </button>
-                      {interpretation && (
-                        <>
-                          <button
-                            onClick={handleCopy}
-                            className={cn(
-                              "flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border",
-                              isCopied
-                                ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30" 
-                                : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
-                            )}
-                          >
-                            {isCopied ? <Check size={14} /> : <Clipboard size={14} />}
-                            {isCopied ? "Copied" : "Copy"}
-                          </button>
-                          <button
-                            onClick={handleShare}
-                            className={cn(
-                              "flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border",
-                              isSharing 
-                                ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30" 
-                                : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
-                            )}
-                          >
-                            {isSharing ? <Check size={14} /> : <Share2 size={14} />}
-                            {isSharing ? "Done" : "Share"}
-                          </button>
-                          <button
-                            onClick={handleSpeak}
-                            className={cn(
-                              "flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-lg border",
-                              isPlaying 
-                                ? "bg-sky-900/30 text-sky-400 border-sky-500/30" 
-                                : "bg-slate-800/50 text-slate-300 border-white/5 hover:bg-slate-700/50 hover:text-sky-400"
-                            )}
-                          >
-                            {isPlaying ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                            {isPlaying ? "Stop" : "Read Aloud"}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                {isInterpreting ? (
+                  <span className="inline-flex items-center gap-2 text-fuchsia-200">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Reading your dream right now.
+                  </span>
+                ) : dream.trim() ? (
+                  'Your reading updates instantly as you type, then gets saved when you choose to keep it.'
+                ) : (
+                  'Type a dream and this area will populate right away.'
+                )}
+              </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    <div className="lg:col-span-7 prose prose-invert prose-sky max-w-none prose-p:leading-relaxed prose-p:text-slate-200 prose-headings:text-white">
-                      {interpretation ? (
-                        <ReactMarkdown>{interpretation}</ReactMarkdown>
-                      ) : (
-                        <div className="flex items-center gap-4 text-sky-300 animate-pulse py-8">
-                          <Loader2 className="animate-spin" size={24} />
-                          <span className="text-lg font-light tracking-wide">Deciphering your subconscious...</span>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="submit"
+                  disabled={!dream.trim() || isInterpreting}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isInterpreting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {isInterpreting ? 'Interpreting...' : 'Interpret dream'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!dream.trim()}
+                  className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Save to dream vault
+                </button>
+              </div>
+            </form>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Live reading</p>
+                <h2 className="mt-3 font-display text-2xl text-white">
+                  {liveTitle || 'Your reading will appear here'}
+                </h2>
+                <p className="mt-4 text-sm leading-7 text-slate-300">
+                  {displayedInterpretation || 'Type a dream and this reading updates instantly.'}
+                </p>
+              </article>
+
+              <article className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-cyan-400/10 p-5">
+                <p className="text-sm uppercase tracking-[0.28em] text-slate-300">Vault</p>
+                <h2 className="mt-3 font-display text-2xl text-white">Dream Vault</h2>
+                <ul className="mt-4 space-y-2 text-sm leading-6 text-slate-200">
+                  <li>- Free tier includes {FREE_ENTRY_LIMIT} saved dreams to get started.</li>
+                  <li>- Save recurring symbols, notes, and interpretations in one place.</li>
+                  <li>- Review old dreams and notice patterns over time.</li>
+                </ul>
+              </article>
+            </div>
+          </section>
+
+          <aside className="space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/20 backdrop-blur">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Saved dreams</p>
+                  <h2 className="mt-2 font-display text-2xl text-white">Your vault</h2>
+                </div>
+                <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
+                  {freeSlotsLeft} free saves remaining
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search saved dreams"
+                  className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-slate-400 transition hover:text-white"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {visibleVault.length === 0 ? (
+                  <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-400">
+                    No vault entries yet. Save your first dream to begin tracking patterns.
+                  </p>
+                ) : (
+                  visibleVault.map((entry) => (
+                    <article
+                      key={entry.id}
+                      className={`rounded-2xl border px-4 py-4 transition ${
+                        selectedId === entry.id
+                          ? 'border-fuchsia-400/60 bg-fuchsia-500/10'
+                          : 'border-white/10 bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-white">{entry.title}</h3>
+                          <p className="mt-1 text-xs uppercase tracking-[0.25em] text-slate-400">
+                            {new Date(entry.createdAt).toLocaleDateString()}
+                          </p>
                         </div>
-                      )}
-                    </div>
+                        {entry.starred ? <span className="text-xs text-cyan-300">Starred</span> : null}
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-300">
+                        {entry.interpretation.slice(0, 180)}{entry.interpretation.length > 180 ? '...' : ''}
+                      </p>
 
-                    <div className="lg:col-span-5">
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.4, duration: 1 }}
-                        className="aspect-square rounded-[3rem] overflow-hidden bg-slate-800/50 border border-white/5 relative group shadow-2xl"
-                      >
-                        {isGeneratingImage ? (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center text-sky-400/40 gap-6">
-                            <div className="relative">
-                              <motion.div
-                                animate={{ 
-                                  scale: [1, 1.1, 1],
-                                  opacity: [0.4, 0.8, 0.4]
-                                }}
-                                transition={{ duration: 3, repeat: Infinity }}
-                              >
-                                <ImageIcon size={64} strokeWidth={1} />
-                              </motion.div>
-                              <motion.div 
-                                className="absolute -inset-4 border border-sky-500/20 rounded-full"
-                                animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                              />
-                            </div>
-                            <div className="flex flex-col items-center gap-2">
-                              <span className="text-[10px] font-black tracking-[0.3em] uppercase text-sky-300">Visualizing...</span>
-                              <AnimatePresence mode="wait">
-                                <motion.span 
-                                  key={generationStatus}
-                                  initial={{ opacity: 0, y: 5 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -5 }}
-                                  className="text-[9px] text-slate-300 tracking-wider font-medium italic"
-                                >
-                                  {generationStatus}
-                                </motion.span>
-                              </AnimatePresence>
-                            </div>
-                            
-                            {/* Subtle Progress Bar */}
-                            <div className="w-32 h-[2px] bg-slate-800 rounded-full overflow-hidden">
-                              <motion.div 
-                                className="h-full bg-sky-500/40"
-                                animate={{ 
-                                  x: ["-100%", "100%"]
-                                }}
-                                transition={{ 
-                                  duration: 2, 
-                                  repeat: Infinity, 
-                                  ease: "linear" 
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : currentImageUrl ? (
-                          <motion.img
-                            initial={{ opacity: 0, scale: 1.2 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            src={currentImageUrl}
-                            alt="Dream visualization"
-                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                            referrerPolicy="no-referrer"
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleLoad(entry)}
+                          className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white"
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleStar(entry.id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white"
+                        >
+                          <Star className="h-3.5 w-3.5" />
+                          {entry.starred ? 'Unstar' : 'Star'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeEntry(entry.id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Helpful picks</p>
+              <div className="grid gap-4">
+                {partnerLinks.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="sponsored noopener noreferrer"
+                    className="group overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur transition hover:-translate-y-0.5 hover:border-white/20"
+                  >
+                    <div className="grid gap-4 p-4 sm:grid-cols-[112px_1fr]">
+                      <div className={`relative h-28 w-full overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} shadow-inner`}>
+                        {item.imageSrc ? (
+                          <img
+                            src={item.imageSrc}
+                            alt={item.imageAlt ?? item.title}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover object-center"
                           />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center text-slate-700">
-                            <ImageIcon size={64} strokeWidth={1} />
+                          <div className="flex h-full w-full items-center justify-center text-3xl font-black tracking-[0.2em] text-white">
+                            <span className="drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">{item.thumbnail}</span>
                           </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
-                      </motion.div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* History Section */}
-          <AnimatePresence>
-            {showHistory && (
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                style={{ rotateX, rotateY, perspective: 1000 }}
-                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                className="group relative pt-4"
-              >
-                {/* Glistening Border Effect */}
-                <div className="absolute -inset-[1px] rounded-[48px] bg-gradient-to-r from-transparent via-purple-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[1px]" />
-                
-                <div className="relative backdrop-blur-3xl bg-slate-900/40 border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                    <h2 className="text-2xl font-light text-white">Dream Journal</h2>
-                    
-                    <div className="flex items-center gap-4">
-                      <div className="relative flex-1 md:w-72">
-                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search dreams..."
-                          className="w-full bg-slate-800/50 border border-white/5 rounded-full py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-sky-500/50 transition-all text-slate-100 placeholder:text-slate-400"
-                        />
-                        {searchQuery && (
-                          <button 
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                          >
-                            <X size={16} />
-                          </button>
                         )}
                       </div>
-                      
-                      <button 
-                        onClick={clearHistory}
-                        className="p-3 text-slate-400 hover:text-red-400 transition-colors bg-slate-800/50 rounded-full border border-white/5"
-                        title="Clear all"
-                      >
-                        <Trash2 size={22} />
-                      </button>
+                      <div className="flex flex-col justify-between">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">{item.label}</p>
+                          <h3 className="mt-2 font-display text-2xl text-white">{item.title}</h3>
+                          <p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
+                        </div>
+                        <div className="mt-4 inline-flex items-center justify-center self-start rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition group-hover:bg-white/10">
+                          {item.buttonLabel}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  {filteredHistory.length === 0 ? (
-                    <div className="text-center py-20">
-                      <History size={48} className="mx-auto text-slate-700 mb-4" strokeWidth={1} />
-                      <p className="text-slate-400 italic">
-                        {searchQuery ? "No dreams match your search." : "Your journal is empty. Start by sharing a dream."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {filteredHistory.map((dream) => (
-                        <motion.div 
-                          key={dream.id} 
-                          layout
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="group bg-slate-800/30 border border-white/5 rounded-[32px] p-6 hover:bg-slate-800/50 transition-all duration-500"
-                        >
-                          <div className="flex justify-between items-start mb-4">
-                            <span className="text-[10px] uppercase tracking-[0.3em] text-sky-400 font-bold">
-                              {dream.date}
-                            </span>
-                            <button 
-                              onClick={() => deleteEntry(dream.id)}
-                              className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-400 transition-all bg-slate-900/50 rounded-full"
-                              title="Delete entry"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                          <p className="text-slate-200 text-sm line-clamp-3 mb-6 leading-relaxed">
-                            {dream.text}
-                          </p>
-                        <motion.button 
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                              setDreamText(dream.text);
-                              setInterpretation(dream.interpretation || null);
-                              setCurrentImageUrl(dream.imageUrl || null);
-                              setShowHistory(false);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="w-full py-3 bg-slate-900/50 text-sky-400 rounded-full text-xs font-black hover:bg-sky-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
-                          >
-                            <History size={14} /> Revisit
-                          </motion.button>
-                          <motion.button 
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                              setDreamText(dream.text);
-                              setInterpretation(dream.interpretation || null);
-                              setCurrentImageUrl(dream.imageUrl || null);
-                              setIsEditing(true);
-                              setEditingDreamId(dream.id);
-                              setShowHistory(false);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="w-full py-3 mt-2 bg-slate-900/50 text-purple-400 rounded-full text-xs font-black hover:bg-purple-500 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/5"
-                          >
-                            <Settings size={14} /> Edit
-                          </motion.button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
+                  </a>
+                ))}
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
 
-        <footer className="mt-24 text-center text-slate-400 text-[10px] tracking-[0.4em] uppercase pb-12 font-bold">
-          &copy; {new Date().getFullYear()} Dream Interpretation Dictionary • dreaminterpretation-dictionary.com
-        </footer>
-      </div>
-    </div>
+      <footer className="relative z-10 mx-auto max-w-7xl px-4 pb-12 pt-2 text-center text-[10px] font-bold uppercase tracking-[0.4em] text-slate-400 sm:px-6 lg:px-8">
+        &copy; {new Date().getFullYear()} Dream Interpretation Dictionary • dreaminterpretation-dictionary.com
+      </footer>
+    </main>
   );
 }
