@@ -591,9 +591,9 @@ export default function DreamJournal() {
                         </label>
                         <button
                           onClick={() => setShowMonetization((value) => !value)}
-                          className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-500"
+                          className="w-full rounded-xl bg-slate-800/80 py-3 font-semibold text-white transition-colors hover:bg-slate-700"
                         >
-                           Manage Revenue Stack
+                           Dream Vault Options
                         </button>
                     </div>
                 </div>
