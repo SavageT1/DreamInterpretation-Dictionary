@@ -34,6 +34,7 @@ type PartnerLink = {
   gradient: string;
   imageSrc?: string;
   imageAlt?: string;
+  meta?: string;
 };
 
 const partnerLinks: PartnerLink[] = [
@@ -47,6 +48,7 @@ const partnerLinks: PartnerLink[] = [
     gradient: 'from-fuchsia-500/90 via-purple-500/70 to-cyan-400/70',
     imageSrc: FEATURED_OFFER_IMAGE,
     imageAlt: 'Som Sleep product image',
+    meta: 'Sleep routine',
   },
   {
     href: FEATURED_PROJECT_URL,
@@ -56,6 +58,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'Open',
     thumbnail: 'UP',
     gradient: 'from-emerald-500/80 via-teal-500/70 to-sky-400/70',
+    meta: 'Support work',
   },
   {
     href: FEATURED_TOOL_URL,
@@ -65,6 +68,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'Open',
     thumbnail: 'MF',
     gradient: 'from-indigo-500/80 via-violet-500/70 to-fuchsia-400/70',
+    meta: 'Focus boost',
   },
   {
     href: FEATURED_QUIET_URL,
@@ -74,6 +78,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'QT',
     gradient: 'from-amber-500/80 via-orange-500/70 to-rose-400/70',
+    meta: 'Night reset',
   },
   {
     href: FEATURED_HUB_URL,
@@ -83,6 +88,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'Open',
     thumbnail: 'HS',
     gradient: 'from-sky-500/80 via-blue-500/70 to-indigo-400/70',
+    meta: 'Resource pick',
   },
   {
     href: FEATURED_SLEEP_URL,
@@ -92,6 +98,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'SL',
     gradient: 'from-cyan-500/80 via-sky-500/70 to-blue-400/70',
+    meta: 'Sleep support',
   },
   {
     href: FEATURED_NATURAL_URL,
@@ -101,6 +108,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'NL',
     gradient: 'from-lime-500/80 via-emerald-500/70 to-green-400/70',
+    meta: 'Wellness',
   },
   {
     href: FEATURED_REWARX_URL,
@@ -110,6 +118,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'RX',
     gradient: 'from-rose-500/80 via-pink-500/70 to-fuchsia-400/70',
+    meta: 'New pick',
   },
   {
     href: FEATURED_REWARX_STUDIO_URL,
@@ -120,6 +129,7 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'RW',
     gradient: 'from-slate-500/80 via-zinc-500/70 to-neutral-400/70',
+    meta: 'Ecommerce asset',
   },
 ];
 
@@ -531,34 +541,53 @@ export default function DreamJournal() {
                     href={item.href}
                     target="_blank"
                     rel="sponsored noopener noreferrer"
-                    className="group overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur transition hover:-translate-y-0.5 hover:border-white/20"
+                    className="group overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20"
                   >
-                    <div className="grid gap-4 p-4 sm:grid-cols-[112px_1fr]">
-                      <div
-                        className={`relative h-28 w-full overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} shadow-inner`}
-                      >
+                    <div className="relative isolate overflow-hidden">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-90`} />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.12),transparent_35%)]" />
+                      <div className="relative space-y-4 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="inline-flex items-center rounded-full border border-white/20 bg-black/15 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white/90">
+                            Sponsored
+                          </span>
+                          <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-white/90">
+                            {item.meta ?? item.label}
+                          </span>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-[144px_1fr]">
+                      <div className="relative h-36 overflow-hidden rounded-[1.35rem] border border-white/15 bg-black/20 shadow-[0_20px_40px_rgba(0,0,0,0.28)]">
                         {item.imageSrc ? (
                           <img
                             src={item.imageSrc}
                             alt={item.imageAlt ?? item.title}
                             loading="lazy"
                             decoding="async"
-                            className="h-full w-full object-cover object-center"
+                            className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.03]"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-3xl font-black tracking-[0.2em] text-white">
-                            <span className="drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">{item.thumbnail}</span>
+                          <div className="flex h-full w-full items-center justify-center">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-[1.4rem] border border-white/15 bg-white/10 text-3xl font-black tracking-[0.2em] text-white shadow-[0_18px_34px_rgba(0,0,0,0.25)]">
+                              <span className="drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">{item.thumbnail}</span>
+                            </div>
                           </div>
                         )}
-                      </div>
-                      <div className="flex flex-col justify-between">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">{item.label}</p>
-                          <h3 className="mt-2 font-display text-2xl text-white">{item.title}</h3>
-                          <p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
                         </div>
-                        <div className="mt-4 inline-flex items-center justify-center self-start rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition group-hover:bg-white/10">
-                          {item.buttonLabel}
+                        </div>
+
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                          <div className="max-w-xl">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-white/75">{item.label}</p>
+                            <h3 className="mt-2 font-display text-2xl text-white sm:text-[1.9rem]">{item.title}</h3>
+                            <p className="mt-2 text-sm leading-6 text-white/85 sm:text-[0.95rem]">
+                              {item.description}
+                            </p>
+                          </div>
+
+                          <div className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-black/10 transition group-hover:translate-x-0.5">
+                            {item.buttonLabel}
+                          </div>
                         </div>
                       </div>
                     </div>
