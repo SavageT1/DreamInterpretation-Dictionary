@@ -83,8 +83,6 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'Open',
     thumbnail: 'HS',
     gradient: 'from-sky-500/80 via-blue-500/70 to-indigo-400/70',
-    imageSrc: 'https://a.impactradius-go.com/display-ad/47578-3764648',
-    imageAlt: 'Helpful support product image',
   },
   {
     href: FEATURED_SLEEP_URL,
@@ -103,8 +101,6 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'NL',
     gradient: 'from-lime-500/80 via-emerald-500/70 to-green-400/70',
-    imageSrc: 'https://a.impactradius-go.com/display-ad/10322-659367',
-    imageAlt: 'Natural support product image',
   },
   {
     href: FEATURED_REWARX_URL,
@@ -124,8 +120,6 @@ const partnerLinks: PartnerLink[] = [
     buttonLabel: 'View',
     thumbnail: 'RW',
     gradient: 'from-slate-500/80 via-zinc-500/70 to-neutral-400/70',
-    imageSrc: 'https://a.impactradius-go.com/display-ad/49656-3953964',
-    imageAlt: 'AI Product Photography for Ecommerce ad',
   },
 ];
 
