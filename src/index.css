@@ -101,8 +101,27 @@
 }
 
 .bg-celestial-gradient {
-  background: radial-gradient(circle at 50% 50%, rgba(15, 10, 36, 0.45) 0%, rgba(0, 1, 3, 1) 100%);
+  background:
+    radial-gradient(circle at 82% 10%, rgba(245, 158, 11, 0.26), transparent 26%),
+    radial-gradient(circle at 8% 18%, rgba(20, 184, 166, 0.25), transparent 32%),
+    linear-gradient(135deg, #f8fbff 0%, #e7f3f5 38%, #e7ecfb 68%, #fff6e6 100%);
 }
+
+.happy-site { color: #16213f; }
+.happy-site .text-white { color: #122047; }
+.happy-site .text-slate-100,
+.happy-site .text-slate-200,
+.happy-site .text-slate-300 { color: #334264; }
+.happy-site .text-slate-400,
+.happy-site .text-slate-500 { color: #61708f; }
+.happy-site [class*="bg-slate-950"] { background-color: rgba(255, 255, 255, 0.78); }
+.happy-site [class*="bg-white/5"] { background-color: rgba(255, 255, 255, 0.58); }
+.happy-site input,
+.happy-site textarea { color: #14203f; background: rgba(255, 255, 255, 0.82); }
+.happy-site input::placeholder,
+.happy-site textarea::placeholder { color: #71809f; }
+.happy-site .nebula-glow-1 { background: rgba(20, 184, 166, 0.25); }
+.happy-site .nebula-glow-2 { background: rgba(124, 58, 237, 0.18); }
 
 .shooting-star-emitter {
   position: absolute;

@@ -297,12 +297,13 @@ export default function DreamJournal() {
       setInterpretedDream(cleanDream);
       setTitle((current) => current.trim() || pickTitle(cleanDream));
       trackEvent('dream_interpretation_completed', { source: 'dream_form' });
-    } catch (error) {
-      setInterpretedDream('');
-      setInterpretationError(
-        error instanceof Error ? error.message : 'We could not complete this reading. Please try again.',
-      );
-      trackEvent('dream_interpretation_failed', { source: 'dream_form' });
+    } catch {
+      const fallbackReading = summarizeDream(cleanDream);
+      setInterpretation(fallbackReading);
+      setInterpretedDream(cleanDream);
+      setTitle((current) => current.trim() || pickTitle(cleanDream));
+      setInterpretationError('A private symbol-based reading is shown while the expanded AI reading is unavailable.');
+      trackEvent('dream_interpretation_fallback', { source: 'dream_form' });
     } finally {
       setIsInterpreting(false);
       pendingDream.current = '';
@@ -356,7 +357,7 @@ export default function DreamJournal() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-celestial-gradient text-slate-100">
+    <main className="happy-site relative min-h-screen overflow-hidden bg-celestial-gradient text-slate-100">
       <div className="pointer-events-none absolute inset-0">
         <div className="nebula-glow-1 absolute -left-24 top-[-8rem] h-80 w-80 rounded-full bg-fuchsia-500/20 blur-3xl" />
         <div className="nebula-glow-2 absolute right-[-6rem] top-24 h-96 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -365,16 +366,23 @@ export default function DreamJournal() {
       </div>
 
       <section className="relative mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
-        <header className="max-w-3xl">
-          <p className="mb-3 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.32em] text-slate-300">
-            Dream Interpretation Dictionary
-          </p>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Track dreams, interpret symbols, and build your vault.
+        <nav className="flex flex-wrap items-center justify-between gap-4" aria-label="Primary navigation">
+          <a href="/" className="font-display text-sm font-bold uppercase tracking-[0.22em] text-slate-900">Dream Interpretation Dictionary</a>
+          <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-700"><a href="#how-it-works">How it works</a><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a></div>
+        </nav>
+
+        <header className="max-w-4xl py-4">
+          <h1 className="font-display uppercase text-slate-950">
+            <span className="block text-7xl font-black leading-[0.82] tracking-[-0.07em] sm:text-8xl lg:text-[9rem]">Dream</span>
+            <span className="mt-4 block text-2xl font-bold tracking-[0.16em] text-teal-700 sm:text-4xl">Interpretation</span>
+            <span className="mt-2 block text-sm font-bold tracking-[0.5em] text-violet-700 sm:text-base">Dictionary</span>
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-            Track your dreams, get a live reading as you type, and save the ones you want to revisit later.
+          <p className="mt-7 max-w-3xl text-lg font-semibold leading-tight text-slate-800 sm:text-2xl">
+            Understand the <span className="mx-1 inline-block text-3xl font-black uppercase text-amber-500 sm:text-5xl">meaning</span>
+            <span> of what you&apos;re </span>
+            <span className="mx-1 inline-block text-3xl font-black uppercase text-teal-600 sm:text-5xl">dreaming</span>.
           </p>
+          <p className="mt-4 text-lg font-semibold text-slate-700">Track it in your private dream journal.</p>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -554,7 +562,8 @@ export default function DreamJournal() {
             <section className="space-y-4">
               <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Helpful picks</p>
               <div className="grid gap-4">
-                {partnerLinks.map((item) => (
+                <p className="text-sm leading-6 text-slate-400">Sponsored resources may earn us a commission at no extra cost to you.</p>
+                {partnerLinks.slice(0, 3).map((item) => (
                   <a
                     key={item.href}
                     href={item.href}
@@ -623,8 +632,21 @@ export default function DreamJournal() {
 
           </aside>
         </div>
+
+        <section id="how-it-works" className="grid gap-6 lg:grid-cols-3">
+          <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10"><p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-700">Step one</p><h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Describe what you remember</h2><p className="mt-3 leading-7 text-slate-700">Write the setting, people, actions, objects, and emotions that stood out. Personal context matters more than finding one universal definition.</p></article>
+          <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10"><p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-700">Step two</p><h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Explore possible meanings</h2><p className="mt-3 leading-7 text-slate-700">Your reading connects common symbolic themes with the emotional tone of your dream. It offers possibilities for reflection—not predictions or diagnoses.</p></article>
+          <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10"><p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-700">Step three</p><h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Save only if you want</h2><p className="mt-3 leading-7 text-slate-700">After the reading, add an optional title or note and keep it in your private on-device journal. No account is required for local saves.</p></article>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-700">A better way to use a dream dictionary</p>
+          <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold text-slate-950">Symbols are starting points, not fixed answers.</h2>
+          <div className="mt-5 grid gap-5 text-base leading-7 text-slate-700 md:grid-cols-2"><p>Water might feel peaceful to one person and threatening to another. A house could represent safety, identity, family history, or simply a recent memory. A useful interpretation considers what happened, how you felt, and what the symbol means in your own life.</p><p>Reviewing dreams over time can reveal repeated places, emotions, and choices. Your journal helps you compare those patterns without claiming that dreams predict the future. Treat every reading as an invitation to reflect and keep what genuinely fits.</p></div>
+        </section>
+
+        <footer className="flex flex-col gap-4 border-t border-slate-900/10 py-8 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"><p>© 2026 Dream Interpretation Dictionary. For reflection and entertainment—not professional advice.</p><nav className="flex flex-wrap gap-4" aria-label="Footer navigation"><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/editorial-policy">Editorial policy</a><a href="/contact">Contact</a></nav></footer>
       </section>
     </main>
   );
 }
-
