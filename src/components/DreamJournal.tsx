@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import FEATURED_OFFER_IMAGE from '../../som-sleep-powder-drink-mix-all-flavors.jpeg';
+import { trackEvent } from '../lib/analytics';
 
 type VaultEntry = {
   id: string;
@@ -22,8 +23,6 @@ const FEATURED_SLEEP_URL = 'https://sleepcyclecreator.sjv.io/c/5677401/2545291/2
 const FEATURED_NATURAL_URL = 'https://nuleafnaturals.sjv.io/c/5677401/659367/10322';
 const FEATURED_REWARX_URL = 'https://rewarxlimited.pxf.io/VOQZNO';
 const FEATURED_REWARX_STUDIO_URL = 'https://rewarxlimited.pxf.io/c/5677401/3953964/49656';
-const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() || 'G-PH1MMLJNR9';
-
 type PartnerLink = {
   href: string;
   label: string;
@@ -197,6 +196,7 @@ export default function DreamJournal() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const interpretTimer = useRef<number | null>(null);
   const pendingDream = useRef('');
+  const hasTrackedDreamStart = useRef(false);
 
   useEffect(() => {
     try {
@@ -242,34 +242,6 @@ export default function DreamJournal() {
     }
   }, [dream, isInterpreting]);
 
-  useEffect(() => {
-    if (!GA_MEASUREMENT_ID || typeof window === 'undefined') {
-      return;
-    }
-
-    const existingScript = document.querySelector<HTMLScriptElement>(
-      `script[src="https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}"]`,
-    );
-
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
-      document.head.appendChild(script);
-    }
-
-    const analyticsWindow = window as Window & { dataLayer?: unknown[][] };
-    const dataLayer = analyticsWindow.dataLayer ?? [];
-    analyticsWindow.dataLayer = dataLayer;
-
-    function gtag(...args: unknown[]) {
-      dataLayer.push(args);
-    }
-
-    gtag('js', new Date());
-    gtag('config', GA_MEASUREMENT_ID, { send_page_view: true });
-  }, []);
-
   const freeSlotsLeft = Math.max(0, FREE_ENTRY_LIMIT - vault.length);
   const orderedVault = useMemo(
     () => [...vault].sort((a, b) => Number(b.starred) - Number(a.starred) || b.createdAt.localeCompare(a.createdAt)),
@@ -280,6 +252,15 @@ export default function DreamJournal() {
   const hasDreamText = dream.trim().length > 0;
   const hasFreshReading = interpretedDream === dream.trim() && interpretation.trim().length > 0;
   const displayedInterpretation = isInterpreting ? '' : hasFreshReading ? interpretation : liveInterpretation;
+
+  function handleDreamChange(nextDream: string) {
+    setDream(nextDream);
+
+    if (!hasTrackedDreamStart.current && nextDream.trim()) {
+      hasTrackedDreamStart.current = true;
+      trackEvent('dream_started', { source: 'dream_form' });
+    }
+  }
 
   function handleInterpret(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -295,6 +276,7 @@ export default function DreamJournal() {
     setInterpretation('');
     setSelectedId(null);
     pendingDream.current = cleanDream;
+    trackEvent('dream_interpretation_started', { source: 'dream_form' });
 
     interpretTimer.current = window.setTimeout(() => {
       const nextInterpretation = summarizeDream(cleanDream);
@@ -304,6 +286,7 @@ export default function DreamJournal() {
       setIsInterpreting(false);
       interpretTimer.current = null;
       pendingDream.current = '';
+      trackEvent('dream_interpretation_completed', { source: 'dream_form' });
     }, 500);
   }
 
@@ -327,6 +310,7 @@ export default function DreamJournal() {
     setInterpretedDream(cleanDream);
     setVault((current) => [nextEntry, ...current]);
     setSelectedId(nextEntry.id);
+    trackEvent('dream_saved', { vault_size: vault.length + 1 });
   }
 
   function handleLoad(entry: VaultEntry) {
@@ -406,7 +390,7 @@ export default function DreamJournal() {
                 <span className="text-sm font-medium text-slate-200">Describe the dream</span>
                 <textarea
                   value={dream}
-                  onChange={(event) => setDream(event.target.value)}
+                  onChange={(event) => handleDreamChange(event.target.value)}
                   rows={8}
                   className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
                 />
@@ -541,6 +525,12 @@ export default function DreamJournal() {
                     href={item.href}
                     target="_blank"
                     rel="sponsored noopener noreferrer"
+                    onClick={() =>
+                      trackEvent('affiliate_click', {
+                        partner: item.label,
+                        offer: item.title,
+                      })
+                    }
                     className="group overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20"
                   >
                     <div className="relative isolate overflow-hidden">
