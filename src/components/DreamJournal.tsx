@@ -192,6 +192,7 @@ export default function DreamJournal() {
   const [interpretation, setInterpretation] = useState('');
   const [interpretedDream, setInterpretedDream] = useState('');
   const [isInterpreting, setIsInterpreting] = useState(false);
+  const [interpretationError, setInterpretationError] = useState('');
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const interpretTimer = useRef<number | null>(null);
@@ -248,13 +249,13 @@ export default function DreamJournal() {
     [vault],
   );
   const liveTitle = title.trim() || (dream.trim() ? pickTitle(dream) : '');
-  const liveInterpretation = dream.trim() ? summarizeDream(dream) : '';
   const hasDreamText = dream.trim().length > 0;
   const hasFreshReading = interpretedDream === dream.trim() && interpretation.trim().length > 0;
-  const displayedInterpretation = isInterpreting ? '' : hasFreshReading ? interpretation : liveInterpretation;
+  const displayedInterpretation = isInterpreting ? '' : hasFreshReading ? interpretation : '';
 
   function handleDreamChange(nextDream: string) {
     setDream(nextDream);
+    setInterpretationError('');
 
     if (!hasTrackedDreamStart.current && nextDream.trim()) {
       hasTrackedDreamStart.current = true;
@@ -262,7 +263,7 @@ export default function DreamJournal() {
     }
   }
 
-  function handleInterpret(event: FormEvent<HTMLFormElement>) {
+  async function handleInterpret(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const cleanDream = dream.trim();
@@ -274,20 +275,38 @@ export default function DreamJournal() {
 
     setIsInterpreting(true);
     setInterpretation('');
+    setInterpretationError('');
     setSelectedId(null);
     pendingDream.current = cleanDream;
     trackEvent('dream_interpretation_started', { source: 'dream_form' });
 
-    interpretTimer.current = window.setTimeout(() => {
-      const nextInterpretation = summarizeDream(cleanDream);
+    try {
+      const response = await fetch('/api/interpret', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dreamText: cleanDream }),
+      });
+      const result = (await response.json()) as { interpretation?: string; error?: string };
+
+      if (!response.ok || !result.interpretation?.trim()) {
+        throw new Error(result.error || 'The interpretation service did not return a reading.');
+      }
+
+      const nextInterpretation = result.interpretation.trim();
       setInterpretation(nextInterpretation);
       setInterpretedDream(cleanDream);
       setTitle((current) => current.trim() || pickTitle(cleanDream));
-      setIsInterpreting(false);
-      interpretTimer.current = null;
-      pendingDream.current = '';
       trackEvent('dream_interpretation_completed', { source: 'dream_form' });
-    }, 500);
+    } catch (error) {
+      setInterpretedDream('');
+      setInterpretationError(
+        error instanceof Error ? error.message : 'We could not complete this reading. Please try again.',
+      );
+      trackEvent('dream_interpretation_failed', { source: 'dream_form' });
+    } finally {
+      setIsInterpreting(false);
+      pendingDream.current = '';
+    }
   }
 
   function handleSave() {
@@ -295,7 +314,8 @@ export default function DreamJournal() {
     if (!cleanDream) return;
 
     const hasFreshReading = interpretedDream === cleanDream && interpretation.trim().length > 0;
-    const nextInterpretation = hasFreshReading ? interpretation : summarizeDream(cleanDream);
+    if (!hasFreshReading) return;
+    const nextInterpretation = interpretation;
     const nextEntry: VaultEntry = {
       id: createId(),
       title: title.trim() || pickTitle(cleanDream),
@@ -403,8 +423,14 @@ export default function DreamJournal() {
                 <p className="mt-4 text-sm leading-7 text-slate-300">
                   {isInterpreting
                     ? 'We are translating the symbols and emotional tone into a reading now...'
-                    : displayedInterpretation || 'Type a dream and this reading updates instantly.'}
+                    : displayedInterpretation || 'Describe your dream, then select Interpret dream for your full reading.'}
                 </p>
+
+                {interpretationError ? (
+                  <p className="mt-4 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-100">
+                    {interpretationError}
+                  </p>
+                ) : null}
 
                 {hasFreshReading ? (
                   <section className="mt-6 border-t border-white/10 pt-5" aria-label="Save this reading">
