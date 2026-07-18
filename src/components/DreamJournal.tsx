@@ -364,29 +364,7 @@ export default function DreamJournal() {
               className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
               aria-busy={isInterpreting}
             >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="flex flex-col gap-2">
-                  <span className="text-sm font-medium text-slate-200">Dream title</span>
-                  <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
-                  />
-                  <span className="text-xs text-slate-500">Give the dream a short name so you can find it later.</span>
-                </label>
-
-                <label className="flex flex-col gap-2">
-                  <span className="text-sm font-medium text-slate-200">Dream book notes</span>
-                  <input
-                    value={dreamBookNotes}
-                    onChange={(event) => setDreamBookNotes(event.target.value)}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/60 focus:bg-white/10"
-                  />
-                  <span className="text-xs text-slate-500">Capture symbols, book references, or a quick insight.</span>
-                </label>
-              </div>
-
-              <label className="mt-4 flex flex-col gap-2">
+              <label className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-slate-200">Describe the dream</span>
                 <textarea
                   value={dream}
@@ -397,21 +375,13 @@ export default function DreamJournal() {
                 <span className="text-xs text-slate-500">Include what happened, who was there, and how it felt.</span>
               </label>
 
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-5">
                 <button
                   type="submit"
                   disabled={isInterpreting || !hasDreamText}
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isInterpreting ? 'Interpreting...' : hasDreamText ? 'Interpret dream' : 'Enter a dream first'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isInterpreting || !hasDreamText}
-                  className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Save to dream vault
                 </button>
               </div>
             </form>
@@ -435,6 +405,45 @@ export default function DreamJournal() {
                     ? 'We are translating the symbols and emotional tone into a reading now...'
                     : displayedInterpretation || 'Type a dream and this reading updates instantly.'}
                 </p>
+
+                {hasFreshReading ? (
+                  <section className="mt-6 border-t border-white/10 pt-5" aria-label="Save this reading">
+                    <p className="text-sm font-semibold text-white">Want to save this reading?</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      These details are optional and only help you find this dream later.
+                    </p>
+
+                    <div className="mt-4 grid gap-4">
+                      <label className="flex flex-col gap-2">
+                        <span className="text-sm font-medium text-slate-200">Dream title (optional)</span>
+                        <input
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-2">
+                        <span className="text-sm font-medium text-slate-200">Dream book notes (optional)</span>
+                        <textarea
+                          value={dreamBookNotes}
+                          onChange={(event) => setDreamBookNotes(event.target.value)}
+                          rows={3}
+                          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-cyan-400/60 focus:bg-white/10"
+                          placeholder="Add symbols, book references, or anything you want to remember."
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={handleSave}
+                        className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+                      >
+                        Save to dream vault
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
               </article>
 
               <article className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-cyan-400/10 p-5">
@@ -592,3 +601,4 @@ export default function DreamJournal() {
     </main>
   );
 }
+
