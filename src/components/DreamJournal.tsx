@@ -378,9 +378,9 @@ export default function DreamJournal() {
             <span className="mt-2 block text-sm font-bold tracking-[0.5em] text-violet-700 sm:text-base">Dictionary</span>
           </h1>
           <p className="mt-7 max-w-3xl text-lg font-semibold leading-tight text-slate-800 sm:text-2xl">
-            Understand the <span className="mx-1 inline-block text-3xl font-black uppercase text-amber-500 sm:text-5xl">meaning</span>
+            Understand the <span className="mx-1 inline-block text-3xl font-black uppercase text-violet-400 sm:text-5xl">meaning</span>
             <span> of what you&apos;re </span>
-            <span className="mx-1 inline-block text-3xl font-black uppercase text-teal-600 sm:text-5xl">dreaming</span>.
+            <span className="mx-1 inline-block text-3xl font-black uppercase text-teal-300 sm:text-5xl">dreaming</span>.
           </p>
           <p className="mt-4 text-lg font-semibold text-slate-700">Track it in your private dream journal.</p>
         </header>

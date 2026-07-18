@@ -102,26 +102,32 @@
 
 .bg-celestial-gradient {
   background:
-    radial-gradient(circle at 82% 10%, rgba(245, 158, 11, 0.26), transparent 26%),
-    radial-gradient(circle at 8% 18%, rgba(20, 184, 166, 0.25), transparent 32%),
-    linear-gradient(135deg, #f8fbff 0%, #e7f3f5 38%, #e7ecfb 68%, #fff6e6 100%);
+    radial-gradient(circle at 84% 10%, rgba(139, 92, 246, 0.42), transparent 30%),
+    radial-gradient(circle at 8% 20%, rgba(20, 184, 166, 0.26), transparent 32%),
+    linear-gradient(135deg, #070b24 0%, #11194a 45%, #23134d 72%, #071d34 100%);
 }
 
-.happy-site { color: #16213f; }
-.happy-site .text-white { color: #122047; }
+.happy-site { color: #e8eefc; }
+.happy-site .text-white,
+.happy-site .text-slate-950,
+.happy-site .text-slate-900,
+.happy-site .text-slate-800 { color: #f8fafc; }
 .happy-site .text-slate-100,
 .happy-site .text-slate-200,
-.happy-site .text-slate-300 { color: #334264; }
+.happy-site .text-slate-300,
+.happy-site .text-slate-700,
+.happy-site .text-slate-600 { color: #d3dcf2; }
 .happy-site .text-slate-400,
-.happy-site .text-slate-500 { color: #61708f; }
-.happy-site [class*="bg-slate-950"] { background-color: rgba(255, 255, 255, 0.78); }
-.happy-site [class*="bg-white/5"] { background-color: rgba(255, 255, 255, 0.58); }
+.happy-site .text-slate-500 { color: #9daccc; }
+.happy-site [class*="bg-slate-950"] { background-color: rgba(7, 12, 38, 0.78); }
+.happy-site [class*="bg-white/5"] { background-color: rgba(255, 255, 255, 0.08); }
+.happy-site [class*="bg-white/75"] { background-color: rgba(13, 20, 58, 0.82); }
 .happy-site input,
 .happy-site textarea { color: #14203f; background: rgba(255, 255, 255, 0.82); }
 .happy-site input::placeholder,
 .happy-site textarea::placeholder { color: #71809f; }
-.happy-site .nebula-glow-1 { background: rgba(20, 184, 166, 0.25); }
-.happy-site .nebula-glow-2 { background: rgba(124, 58, 237, 0.18); }
+.happy-site .nebula-glow-1 { background: rgba(20, 184, 166, 0.3); }
+.happy-site .nebula-glow-2 { background: rgba(139, 92, 246, 0.35); }
 
 .shooting-star-emitter {
   position: absolute;
