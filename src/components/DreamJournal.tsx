@@ -14,6 +14,7 @@ type VaultEntry = {
 
 const STORAGE_KEY = 'dream-interpretation-dictionary:vault:v1';
 const FREE_ENTRY_LIMIT = 3;
+const FREE_INTERPRETATION_LIMIT = 3;
 const FEATURED_OFFER_URL = 'https://somsleep.sjv.io/5kqA5L';
 const FEATURED_PROJECT_URL = 'https://upwork.pxf.io/enQqRz';
 const FEATURED_TOOL_URL = 'https://muzzle.sjv.io/oNGznm';
@@ -140,44 +141,6 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function summarizeDream(dream: string) {
-  const text = dream.trim();
-  if (!text) return 'Your dream will appear here after you interpret it.';
-
-  const lower = text.toLowerCase();
-  const signals: string[] = [];
-
-  if (/(fall|falling|drop|dropped)/.test(lower)) {
-    signals.push('You may be processing pressure, uncertainty, or a loss of control.');
-  }
-
-  if (/(water|ocean|river|rain|flood|swim)/.test(lower)) {
-    signals.push('Water often points to emotion, intuition, or a situation that feels deep and active.');
-  }
-
-  if (/(teeth|tooth)/.test(lower)) {
-    signals.push('Teeth dreams often connect to confidence, change, or concern about appearance and communication.');
-  }
-
-  if (/(chase|running|hiding|escape)/.test(lower)) {
-    signals.push('This can reflect avoidance, urgency, or a part of life that needs attention.');
-  }
-
-  if (/(house|room|home|door)/.test(lower)) {
-    signals.push('A house or room may symbolize your inner life, identity, or a specific area of your world.');
-  }
-
-  if (signals.length === 0) {
-    signals.push('This dream looks like it is asking for context from your waking life and any recurring symbols.');
-  }
-
-  return [
-    'Dream reading',
-    ...signals,
-    'If you want a sharper reading, add a dream book note and watch for repeated symbols over time.',
-  ].join(' ');
-}
-
 function pickTitle(dream: string) {
   const cleaned = dream.trim().replace(/\s+/g, ' ');
   if (!cleaned) return 'Untitled dream';
@@ -193,6 +156,9 @@ export default function DreamJournal() {
   const [interpretedDream, setInterpretedDream] = useState('');
   const [isInterpreting, setIsInterpreting] = useState(false);
   const [interpretationError, setInterpretationError] = useState('');
+  const [freeInterpretationsLeft, setFreeInterpretationsLeft] = useState(FREE_INTERPRETATION_LIMIT);
+  const [isPremium, setIsPremium] = useState(false);
+  const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const interpretTimer = useRef<number | null>(null);
@@ -211,6 +177,38 @@ export default function DreamJournal() {
     } catch {
       setVault([]);
     }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    const verifyPurchase =
+      params.get('checkout') === 'success' && sessionId
+        ? fetch(`/api/verify-purchase?session_id=${encodeURIComponent(sessionId)}`)
+        : fetch('/api/access');
+
+    verifyPurchase
+      .then(async (response) => {
+        const data = (await response.json()) as {
+          premium?: boolean;
+          freeRemaining?: number | null;
+          error?: string;
+        };
+        if (!response.ok) throw new Error(data.error || 'Unable to verify access.');
+        setIsPremium(Boolean(data.premium));
+        if (typeof data.freeRemaining === 'number') {
+          setFreeInterpretationsLeft(data.freeRemaining);
+        }
+        if (sessionId) {
+          trackEvent('premium_checkout_completed', { source: 'stripe_checkout' });
+        }
+        window.history.replaceState({}, '', window.location.pathname);
+      })
+      .catch(() => {
+        if (sessionId) {
+          setInterpretationError('Your payment is processing, but premium access could not be verified yet.');
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -284,11 +282,18 @@ export default function DreamJournal() {
       const response = await fetch('/api/interpret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dreamText: cleanDream }),
+        body: JSON.stringify({ dream: cleanDream, notes: dreamBookNotes.trim() }),
       });
-      const result = (await response.json()) as { interpretation?: string; error?: string };
+      const result = (await response.json()) as {
+        interpretation?: string;
+        error?: string;
+        premium?: boolean;
+        freeRemaining?: number | null;
+        upgradeRequired?: boolean;
+      };
 
       if (!response.ok || !result.interpretation?.trim()) {
+        if (result.upgradeRequired) setFreeInterpretationsLeft(0);
         throw new Error(result.error || 'The interpretation service did not return a reading.');
       }
 
@@ -296,14 +301,16 @@ export default function DreamJournal() {
       setInterpretation(nextInterpretation);
       setInterpretedDream(cleanDream);
       setTitle((current) => current.trim() || pickTitle(cleanDream));
+      setIsPremium(Boolean(result.premium));
+      if (typeof result.freeRemaining === 'number') {
+        setFreeInterpretationsLeft(result.freeRemaining);
+      }
       trackEvent('dream_interpretation_completed', { source: 'dream_form' });
-    } catch {
-      const fallbackReading = summarizeDream(cleanDream);
-      setInterpretation(fallbackReading);
-      setInterpretedDream(cleanDream);
-      setTitle((current) => current.trim() || pickTitle(cleanDream));
-      setInterpretationError('A private symbol-based reading is shown while the expanded AI reading is unavailable.');
-      trackEvent('dream_interpretation_fallback', { source: 'dream_form' });
+    } catch (error) {
+      setInterpretationError(
+        error instanceof Error ? error.message : 'The interpretation service is unavailable.',
+      );
+      trackEvent('dream_interpretation_error', { source: 'dream_form' });
     } finally {
       setIsInterpreting(false);
       pendingDream.current = '';
@@ -356,6 +363,28 @@ export default function DreamJournal() {
     }
   }
 
+  async function openBillingRoute(route: '/api/checkout' | '/api/portal') {
+    setIsStartingCheckout(true);
+    setInterpretationError('');
+
+    try {
+      const response = await fetch(route, { method: 'POST' });
+      const data = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'Secure billing could not be opened.');
+      }
+      if (route === '/api/checkout') {
+        trackEvent('premium_checkout_started', { source: 'premium_card' });
+      }
+      window.location.assign(data.url);
+    } catch (error) {
+      setInterpretationError(
+        error instanceof Error ? error.message : 'Secure billing could not be opened.',
+      );
+      setIsStartingCheckout(false);
+    }
+  }
+
   return (
     <main className="happy-site relative min-h-screen overflow-hidden bg-celestial-gradient text-slate-100">
       <div className="pointer-events-none absolute inset-0">
@@ -401,6 +430,9 @@ export default function DreamJournal() {
                   className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
                 />
                 <span className="text-xs text-slate-500">Include what happened, who was there, and how it felt.</span>
+                <span className="text-xs text-slate-500">
+                  Your dream text is sent securely to OpenAI for interpretation. Readings are reflective, not medical advice or predictions.
+                </span>
               </label>
 
               <div className="mt-5">
@@ -411,6 +443,9 @@ export default function DreamJournal() {
                 >
                   {isInterpreting ? 'Interpreting...' : hasDreamText ? 'Interpret dream' : 'Enter a dream first'}
                 </button>
+                <span className="ml-3 text-xs text-slate-400">
+                  {isPremium ? 'Premium: unlimited readings' : `${freeInterpretationsLeft} free interpretations left`}
+                </span>
               </div>
             </form>
 
@@ -481,13 +516,25 @@ export default function DreamJournal() {
               </article>
 
               <article className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-cyan-400/10 p-5">
-                <p className="text-sm uppercase tracking-[0.28em] text-slate-300">Vault</p>
-                <h2 className="mt-3 font-display text-2xl text-white">Dream Vault</h2>
+                <p className="text-sm uppercase tracking-[0.28em] text-slate-300">Premium</p>
+                <h2 className="mt-3 font-display text-2xl text-white">Unlimited interpretations</h2>
                 <ul className="mt-4 space-y-2 text-sm leading-6 text-slate-200">
-                  <li>- Free tier includes {FREE_ENTRY_LIMIT} saved dreams to get started.</li>
-                  <li>- Save recurring symbols, notes, and interpretations in one place.</li>
-                  <li>- Review old dreams and notice patterns over time.</li>
+                  <li>- Start with {FREE_INTERPRETATION_LIMIT} personalized readings.</li>
+                  <li>- Upgrade for unlimited AI interpretations at $7.99 per month.</li>
+                  <li>- Manage or cancel securely through Stripe.</li>
                 </ul>
+                <button
+                  type="button"
+                  onClick={() => openBillingRoute(isPremium ? '/api/portal' : '/api/checkout')}
+                  disabled={isStartingCheckout}
+                  className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60"
+                >
+                  {isStartingCheckout
+                    ? 'Opening secure billing...'
+                    : isPremium
+                      ? 'Manage subscription'
+                      : 'Unlock unlimited readings'}
+                </button>
               </article>
             </div>
           </section>

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 type LegalPageProps = { path: string };
 
-const updated = 'July 18, 2026';
+const updated = 'July 25, 2026';
 
 const pages: Record<string, { title: string; intro: string; content: ReactNode }> = {
   '/privacy': {
@@ -14,6 +14,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
       <p>Google's use of information is described in <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">How Google uses information from sites or apps that use its services</a>. You can manage personalized advertising in <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google Ads Settings</a>.</p>
       <h2>Your choices</h2><p>You may reject optional analytics and advertising storage using the notice shown on this site. You can clear saved dreams and consent choices by clearing this site's browser storage. Browser controls can also block or remove cookies.</p>
       <h2>Affiliate links</h2><p>Some clearly labeled sponsored links are affiliate links. We may receive a commission if you make a qualifying purchase, at no extra cost to you. Affiliate partners may process visits under their own privacy policies.</p>
+      <h2>Interpretation and payment providers</h2><p>Dream text submitted for a reading is sent securely to our automated interpretation provider to generate the requested response. We ask the provider not to retain the response for later retrieval. Subscription checkout and billing are handled by Stripe; we do not receive or store your complete payment-card number.</p>
       <h2>Data retention and security</h2><p>Local journal entries remain on your device until you delete them or clear browser storage. Interpretation requests are processed only to return the requested result. We use HTTPS and limit request size and frequency, but no online service can promise absolute security.</p>
       <h2>Children</h2><p>This general-audience service is not directed to children under 13, and we do not knowingly collect their personal information.</p>
       <h2>Contact</h2><p>Privacy questions can be sent to <a href="mailto:office@a1tradelines.com">office@a1tradelines.com</a>.</p>
@@ -25,6 +26,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
       <h2>No professional advice</h2><p>The service does not provide medical, mental-health, legal, or financial advice and is not a substitute for a qualified professional. If a dream or waking experience causes distress or raises safety concerns, contact an appropriate licensed professional or emergency service.</p>
       <h2>Acceptable use</h2><p>Do not misuse the service, attempt to disrupt it, submit unlawful material, probe its security, automate excessive requests, or enter another person's private information without permission.</p>
       <h2>Saved information</h2><p>Your local dream vault depends on browser storage. You are responsible for keeping any copy you need; local entries may be lost if storage is cleared or the device changes.</p>
+      <h2>Subscriptions and cancellation</h2><p>Premium access is a recurring monthly subscription at the price shown before checkout. Stripe processes payment and renews the subscription automatically until you cancel. You can cancel future renewals from the billing-management link on the dream tool; cancellation takes effect at the end of the current paid period. Except where law requires otherwise, completed subscription charges are non-refundable.</p>
       <h2>Third-party services</h2><p>Sponsored resources and other external links lead to independent websites. We do not control their products, availability, claims, prices, or privacy practices.</p>
       <h2>Changes and availability</h2><p>Features and these terms may change. The service is provided as available without a guarantee of uninterrupted operation or a particular interpretation outcome.</p>
     </>,
@@ -47,7 +49,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
   '/editorial-policy': {
     title: 'Editorial & Interpretation Policy', intro: 'Our readings are designed to support reflection while avoiding certainty, diagnosis, and sensational claims.', content: <>
       <h2>Interpretation principles</h2><p>We consider emotional tone, common symbolic associations, the dream setting, and the dreamer's described reactions. We distinguish possibility from fact and avoid claiming that a dream predicts future events.</p>
-      <h2>Automation disclosure</h2><p>Readings may be produced with automated language technology. When that service is unavailable, the site can provide a rule-based symbol reading. Automated output may be incomplete or mistaken and should be evaluated using your own life context.</p>
+      <h2>Automation disclosure</h2><p>Readings are produced with automated language technology. Automated output may be incomplete or mistaken and should be evaluated using your own life context. If the interpretation service is unavailable, the site will ask you to try again rather than presenting a simulated reading.</p>
       <h2>Safety boundaries</h2><p>We do not use readings to diagnose conditions or recommend treatment. Content that suggests imminent harm should be addressed with an appropriate qualified professional or emergency service, not a dream website.</p>
       <h2>Corrections</h2><p>If site-authored educational material is inaccurate or unclear, contact us with the page and suggested correction. We review substantive reports and update material when appropriate.</p>
     </>,
