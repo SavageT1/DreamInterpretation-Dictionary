@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   createCheckoutNonce,
   getPublicOrigin,
+  PAYMENTS_ENABLED,
   sendJson,
   stripeRequest,
 } from './_shared.js';
@@ -10,6 +11,12 @@ export default async function handler(request: IncomingMessage, response: Server
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
     return sendJson(response, 405, { error: 'Method not allowed.' });
+  }
+
+  if (!PAYMENTS_ENABLED) {
+    return sendJson(response, 503, {
+      error: 'Premium subscriptions are opening soon.',
+    });
   }
 
   const priceId = process.env.STRIPE_PRICE_ID;

@@ -158,6 +158,7 @@ export default function DreamJournal() {
   const [interpretationError, setInterpretationError] = useState('');
   const [freeInterpretationsLeft, setFreeInterpretationsLeft] = useState(FREE_INTERPRETATION_LIMIT);
   const [isPremium, setIsPremium] = useState(false);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -191,11 +192,13 @@ export default function DreamJournal() {
       .then(async (response) => {
         const data = (await response.json()) as {
           premium?: boolean;
+          paymentsEnabled?: boolean;
           freeRemaining?: number | null;
           error?: string;
         };
         if (!response.ok) throw new Error(data.error || 'Unable to verify access.');
         setIsPremium(Boolean(data.premium));
+        setPaymentsEnabled(Boolean(data.paymentsEnabled) || Boolean(data.premium));
         if (typeof data.freeRemaining === 'number') {
           setFreeInterpretationsLeft(data.freeRemaining);
         }
@@ -526,14 +529,16 @@ export default function DreamJournal() {
                 <button
                   type="button"
                   onClick={() => openBillingRoute(isPremium ? '/api/portal' : '/api/checkout')}
-                  disabled={isStartingCheckout}
+                  disabled={isStartingCheckout || (!isPremium && !paymentsEnabled)}
                   className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60"
                 >
                   {isStartingCheckout
                     ? 'Opening secure billing...'
                     : isPremium
                       ? 'Manage subscription'
-                      : 'Unlock unlimited readings'}
+                      : paymentsEnabled
+                        ? 'Unlock unlimited readings'
+                        : 'Premium launching shortly'}
                 </button>
               </article>
             </div>

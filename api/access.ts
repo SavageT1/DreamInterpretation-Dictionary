@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   FREE_INTERPRETATION_LIMIT,
   isSubscriptionActive,
+  PAYMENTS_ENABLED,
   readFreeUsage,
   readPremiumSubscriptionId,
   sendJson,
@@ -16,5 +17,9 @@ export default async function handler(request: IncomingMessage, response: Server
   const subscriptionId = readPremiumSubscriptionId(request);
   const premium = subscriptionId ? await isSubscriptionActive(subscriptionId) : false;
   const freeRemaining = Math.max(0, FREE_INTERPRETATION_LIMIT - readFreeUsage(request));
-  return sendJson(response, 200, { premium, freeRemaining: premium ? null : freeRemaining });
+  return sendJson(response, 200, {
+    premium,
+    paymentsEnabled: PAYMENTS_ENABLED,
+    freeRemaining: premium ? null : freeRemaining,
+  });
 }
