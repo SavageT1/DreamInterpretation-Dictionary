@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export const FREE_INTERPRETATION_LIMIT = 3;
@@ -7,7 +7,7 @@ export function sendJson(
   response: ServerResponse,
   status: number,
   body: Record<string, unknown>,
-  extraHeaders: Record<string, string> = {},
+  extraHeaders: Record<string, string | string[]> = {},
 ) {
   response.statusCode = status;
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -20,14 +20,19 @@ export function sendJson(
   response.end(JSON.stringify(body));
 }
 
-export function getRequestOrigin(request: IncomingMessage) {
-  const forwardedProto = request.headers['x-forwarded-proto'];
-  const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || 'https';
-  const forwardedHost = request.headers['x-forwarded-host'];
-  const host = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost || request.headers.host;
+export function getPublicOrigin() {
+  const configuredOrigin = process.env.PUBLIC_SITE_URL?.trim();
+  const vercelOrigin = process.env.VERCEL_URL?.trim();
+  const value =
+    configuredOrigin ||
+    (vercelOrigin ? `https://${vercelOrigin}` : 'https://www.dreaminterpretation-dictionary.com');
+  const origin = new URL(value);
 
-  if (!host) throw new Error('Unable to determine request host.');
-  return `${proto}://${host}`;
+  if (origin.protocol !== 'https:' && origin.hostname !== 'localhost') {
+    throw new Error('The public site URL must use HTTPS.');
+  }
+
+  return origin.origin;
 }
 
 function parseCookies(request: IncomingMessage) {
@@ -77,6 +82,24 @@ export function createPremiumCookie(subscriptionId: string) {
 
   return `dream_premium=${encodeURIComponent(`${payload}.${sign(payload)}`)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`;
 }
+
+export function createCheckoutNonce() {
+  const nonce = randomBytes(24).toString('base64url');
+  return {
+    nonce,
+    cookie: `dream_checkout=${encodeURIComponent(`${nonce}.${sign(nonce)}`)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=1800`,
+  };
+}
+
+export function readCheckoutNonce(request: IncomingMessage) {
+  const token = parseCookies(request).dream_checkout;
+  if (!token) return null;
+  const nonce = verifySignedValue(token);
+  return nonce && /^[A-Za-z0-9_-]{32}$/.test(nonce) ? nonce : null;
+}
+
+export const CLEAR_CHECKOUT_COOKIE =
+  'dream_checkout=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0';
 
 export function readPremiumSubscriptionId(request: IncomingMessage) {
   const token = parseCookies(request).dream_premium;

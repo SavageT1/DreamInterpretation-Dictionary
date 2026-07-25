@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
-  getRequestOrigin,
+  getPublicOrigin,
   readPremiumSubscriptionId,
   sendJson,
   stripeRequest,
@@ -29,7 +29,7 @@ export default async function handler(request: IncomingMessage, response: Server
 
     const form = new URLSearchParams({
       customer: customerId,
-      return_url: getRequestOrigin(request),
+      return_url: getPublicOrigin(),
     });
     const portal = await stripeRequest('/v1/billing_portal/sessions', {
       method: 'POST',

@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-display: ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -155,12 +154,4 @@
   animation: shooting-star 18s ease-in-out infinite;
   animation-delay: 10s;
   pointer-events: none;
-}
-
-/* Launch cleanup: hide extra feature controls for MVP */
-[aria-label="Add Dream Tags"],
-[aria-label="Trend Insights"],
-[aria-label="Voice Input"],
-[aria-label="Dream Mood Sync"] {
-  display: none !important;
 }

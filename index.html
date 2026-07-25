@@ -35,7 +35,9 @@
         wait_for_update: 500
       });
       gtag('js', new Date());
-      gtag('config', 'G-PH1MMLJNR9');
+      gtag('config', 'G-PH1MMLJNR9', {
+        page_location: window.location.origin + window.location.pathname
+      });
     </script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-PH1MMLJNR9"></script>
     <script

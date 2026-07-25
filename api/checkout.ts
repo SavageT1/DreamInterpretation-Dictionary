@@ -1,5 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { getRequestOrigin, sendJson, stripeRequest } from './_shared.js';
+import {
+  createCheckoutNonce,
+  getPublicOrigin,
+  sendJson,
+  stripeRequest,
+} from './_shared.js';
 
 export default async function handler(request: IncomingMessage, response: ServerResponse) {
   if (request.method !== 'POST') {
@@ -13,9 +18,11 @@ export default async function handler(request: IncomingMessage, response: Server
   }
 
   try {
-    const origin = getRequestOrigin(request);
+    const origin = getPublicOrigin();
+    const checkoutNonce = createCheckoutNonce();
     const form = new URLSearchParams({
       mode: 'subscription',
+      client_reference_id: checkoutNonce.nonce,
       'line_items[0][price]': priceId,
       'line_items[0][quantity]': '1',
       success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -30,7 +37,12 @@ export default async function handler(request: IncomingMessage, response: Server
       body: form,
     });
 
-    return sendJson(response, 200, { url: session.url });
+    return sendJson(
+      response,
+      200,
+      { url: session.url },
+      { 'Set-Cookie': checkoutNonce.cookie },
+    );
   } catch (error) {
     console.error('Checkout creation failed', {
       name: error instanceof Error ? error.name : 'UnknownError',
