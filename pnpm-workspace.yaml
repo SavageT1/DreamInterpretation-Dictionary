@@ -1,8 +1,5 @@
 allowBuilds:
   esbuild: true
-  "@firebase/util": false
-  "@google/genai": false
-  protobufjs: false
 
 overrides:
   body-parser: 1.20.6
