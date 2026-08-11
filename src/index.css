@@ -7,151 +7,53 @@
 }
 
 @layer base {
-  :root {
-    --bg-color: #000103;
-    --text-color: #f1f5f9;
-    --accent-color: #a855f7;
-  }
-  html {
-    scroll-behavior: smooth;
-  }
-  body {
-    @apply antialiased bg-[var(--bg-color)] text-[var(--text-color)];
-    color-scheme: dark;
-    overflow-x: hidden;
-  }
-
-  ::selection {
-    background: rgba(168, 85, 247, 0.32);
-    color: #ffffff;
-  }
+  :root { --bg-color:#020617; --text-color:#f8fbff; --accent-color:#b83cff; }
+  html { scroll-behavior:smooth; background:#020617; }
+  body { @apply antialiased bg-[var(--bg-color)] text-[var(--text-color)]; color-scheme:dark; overflow-x:hidden; min-width:320px; }
+  *,*::before,*::after { box-sizing:border-box; }
+  img,svg,video,canvas { max-width:100%; height:auto; }
+  input,textarea,button { max-width:100%; }
+  ::selection { background:rgba(180,55,255,.38); color:#fff; }
 }
 
-@keyframes nebula-drift-1 {
-  0% {
-    transform: translate(0px, 0px) scale(1) rotate(0deg);
-    opacity: 0.12;
-  }
-  33% {
-    transform: translate(40px, -60px) scale(1.15) rotate(120deg);
-    opacity: 0.22;
-  }
-  66% {
-    transform: translate(-30px, 30px) scale(0.9) rotate(240deg);
-    opacity: 0.15;
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1) rotate(360deg);
-    opacity: 0.12;
-  }
-}
-
-@keyframes nebula-drift-2 {
-  0% {
-    transform: translate(0px, 0px) scale(1.1) rotate(360deg);
-    opacity: 0.1;
-  }
-  50% {
-    transform: translate(-50px, 40px) scale(0.85) rotate(180deg);
-    opacity: 0.18;
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1.1) rotate(0deg);
-    opacity: 0.1;
-  }
-}
-
-@keyframes slow-pulse {
-  0%, 100% {
-    opacity: 0.95;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.75;
-    transform: scale(1.02);
-  }
-}
-
-@keyframes shooting-star {
-  0% {
-    transform: translateX(0) translateY(0) rotate(-45deg) scale(0);
-    opacity: 0;
-  }
-  5% {
-    opacity: 1;
-    transform: translateX(0) translateY(0) rotate(-45deg) scale(1);
-  }
-  15% {
-    transform: translateX(-300px) translateY(300px) rotate(-45deg) scale(0);
-    opacity: 0;
-  }
-  100% {
-    transform: translateX(-300px) translateY(300px) rotate(-45deg) scale(0);
-    opacity: 0;
-  }
-}
-
-.nebula-glow-1 {
-  animation: nebula-drift-1 25s ease-in-out infinite;
-}
-
-.nebula-glow-2 {
-  animation: nebula-drift-2 32s ease-in-out infinite;
-}
+@keyframes nebula-drift-1 { 0%,100%{transform:translate(0) scale(1);opacity:.16} 50%{transform:translate(34px,-35px) scale(1.12);opacity:.27} }
+@keyframes nebula-drift-2 { 0%,100%{transform:translate(0) scale(1.08);opacity:.12} 50%{transform:translate(-38px,30px) scale(.92);opacity:.22} }
+@keyframes shooting-star { 0%{transform:translate(0) rotate(-45deg) scale(0);opacity:0} 5%{opacity:1;transform:translate(0) rotate(-45deg) scale(1)} 15%,100%{transform:translate(-300px,300px) rotate(-45deg) scale(0);opacity:0} }
+.nebula-glow-1{animation:nebula-drift-1 25s ease-in-out infinite}.nebula-glow-2{animation:nebula-drift-2 32s ease-in-out infinite}
 
 .bg-celestial-gradient {
   background:
-    radial-gradient(circle at 84% 10%, rgba(139, 92, 246, 0.42), transparent 30%),
-    radial-gradient(circle at 8% 20%, rgba(20, 184, 166, 0.26), transparent 32%),
-    linear-gradient(135deg, #070b24 0%, #11194a 45%, #23134d 72%, #071d34 100%);
+    radial-gradient(circle at 88% 8%, rgba(185,45,255,.32), transparent 29%),
+    radial-gradient(circle at 8% 18%, rgba(0,190,255,.30), transparent 31%),
+    radial-gradient(circle at 52% 64%, rgba(75,48,255,.16), transparent 38%),
+    linear-gradient(145deg,#020617 0%,#06173d 35%,#11104a 63%,#250b46 82%,#05091f 100%);
 }
 
-.happy-site { color: #e8eefc; }
-.happy-site .text-white,
-.happy-site .text-slate-950,
-.happy-site .text-slate-900,
-.happy-site .text-slate-800 { color: #f8fafc; }
-.happy-site .text-slate-100,
-.happy-site .text-slate-200,
-.happy-site .text-slate-300,
-.happy-site .text-slate-700,
-.happy-site .text-slate-600 { color: #d3dcf2; }
-.happy-site .text-slate-400,
-.happy-site .text-slate-500 { color: #9daccc; }
-.happy-site [class*="bg-slate-950"] { background-color: rgba(7, 12, 38, 0.78); }
-.happy-site [class*="bg-white/5"] { background-color: rgba(255, 255, 255, 0.08); }
-.happy-site [class*="bg-white/75"] { background-color: rgba(13, 20, 58, 0.82); }
-.happy-site input,
-.happy-site textarea { color: #14203f; background: rgba(255, 255, 255, 0.82); }
-.happy-site input::placeholder,
-.happy-site textarea::placeholder { color: #71809f; }
-.happy-site .nebula-glow-1 { background: rgba(20, 184, 166, 0.3); }
-.happy-site .nebula-glow-2 { background: rgba(139, 92, 246, 0.35); }
+.happy-site{color:#eef6ff}.happy-site .text-white,.happy-site .text-slate-950,.happy-site .text-slate-900,.happy-site .text-slate-800{color:#fff}.happy-site .text-slate-100,.happy-site .text-slate-200,.happy-site .text-slate-300,.happy-site .text-slate-700,.happy-site .text-slate-600{color:#dbeafe}.happy-site .text-slate-400,.happy-site .text-slate-500{color:#a9b9d8}
+.happy-site [class*="bg-slate-950"]{background-color:rgba(3,8,30,.82)}.happy-site [class*="bg-white/5"]{background-color:rgba(255,255,255,.065)}.happy-site [class*="bg-white/75"]{background-color:rgba(8,15,48,.88)}
+.happy-site input,.happy-site textarea{color:#f8fbff;background:rgba(4,12,42,.88);border-color:rgba(70,207,255,.22)}.happy-site input::placeholder,.happy-site textarea::placeholder{color:#8da3c9}.happy-site input:focus,.happy-site textarea:focus{box-shadow:0 0 0 1px rgba(195,57,255,.45),0 0 28px rgba(38,185,255,.12)}
+.happy-site .nebula-glow-1{background:rgba(0,196,255,.34)}.happy-site .nebula-glow-2{background:rgba(187,45,255,.38)}
 
-.shooting-star-emitter {
-  position: absolute;
-  top: 10%;
-  right: 15%;
-  width: 2px;
-  height: 2px;
-  background: linear-gradient(-45deg, rgba(255, 255, 255, 1), rgba(168, 85, 247, 0));
-  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.8));
-  border-radius: 50%;
-  animation: shooting-star 14s ease-in-out infinite;
-  animation-delay: 4s;
-  pointer-events: none;
+.brand-logo{filter:drop-shadow(0 0 24px rgba(26,173,255,.22)) drop-shadow(0 0 28px rgba(189,48,255,.18))}
+.brand-gradient-text{background:linear-gradient(90deg,#20d7ff 0%,#478cff 40%,#8f45ff 68%,#f03cff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.shooting-star-emitter,.shooting-star-emitter-2{position:absolute;width:2px;height:2px;border-radius:50%;pointer-events:none;animation:shooting-star 15s ease-in-out infinite}.shooting-star-emitter{top:10%;right:15%;background:linear-gradient(-45deg,#fff,rgba(190,55,255,0));filter:drop-shadow(0 0 6px rgba(190,55,255,.85));animation-delay:4s}.shooting-star-emitter-2{top:25%;right:-5%;background:linear-gradient(-45deg,#fff,rgba(32,215,255,0));filter:drop-shadow(0 0 6px rgba(32,215,255,.85));animation-duration:18s;animation-delay:10s}
+
+@media (max-width:640px){
+  .happy-site>section{padding:1rem!important;gap:1.25rem!important}
+  .happy-site nav{align-items:flex-start!important;gap:.75rem!important}
+  .happy-site nav>a{width:100%;font-size:.72rem!important;letter-spacing:.13em!important}
+  .happy-site nav>div{width:100%;gap:.8rem!important;font-size:.78rem!important;overflow-x:auto;padding-bottom:.25rem;white-space:nowrap}
+  .happy-site header{padding:.25rem 0 .5rem!important}
+  .happy-site header h1 span:first-child{font-size:clamp(3.4rem,20vw,5.2rem)!important;line-height:.86!important;letter-spacing:-.065em!important}
+  .happy-site header h1 span:nth-child(2){font-size:1.35rem!important;letter-spacing:.1em!important;margin-top:.65rem!important}
+  .happy-site header h1 span:nth-child(3){font-size:.75rem!important;letter-spacing:.32em!important}
+  .happy-site header p{font-size:1rem!important;line-height:1.45!important;margin-top:1rem!important}
+  .happy-site header p span[class*="text-3xl"]{font-size:1.65rem!important}
+  .happy-site form,.happy-site article,.happy-site aside{border-radius:1.25rem!important;padding:1rem!important}
+  .happy-site textarea{min-height:150px}
+  .happy-site button{min-height:44px;width:100%;padding-left:1rem!important;padding-right:1rem!important}
+  .happy-site button+span{display:block;margin:.65rem 0 0!important;text-align:center}
 }
 
-.shooting-star-emitter-2 {
-  position: absolute;
-  top: 25%;
-  right: -5%;
-  width: 2px;
-  height: 2px;
-  background: linear-gradient(-45deg, rgba(255, 255, 255, 1), rgba(56, 189, 248, 0));
-  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
-  border-radius: 50%;
-  animation: shooting-star 18s ease-in-out infinite;
-  animation-delay: 10s;
-  pointer-events: none;
-}
+@media (prefers-reduced-motion:reduce){.nebula-glow-1,.nebula-glow-2,.shooting-star-emitter,.shooting-star-emitter-2{animation:none!important}}
