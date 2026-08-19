@@ -2,7 +2,13 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export const FREE_INTERPRETATION_LIMIT = 3;
-export const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === 'true';
+const stripeConfigurationPresent = Boolean(
+  process.env.STRIPE_SECRET_KEY &&
+  process.env.STRIPE_PRICE_ID &&
+  process.env.ENTITLEMENT_SECRET,
+);
+export const PAYMENTS_ENABLED =
+  process.env.PAYMENTS_ENABLED === 'true' || stripeConfigurationPresent;
 
 export function sendJson(
   response: ServerResponse,

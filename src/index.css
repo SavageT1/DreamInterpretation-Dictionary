@@ -43,7 +43,8 @@
   .happy-site>section{padding:1rem!important;gap:1.25rem!important}
   .happy-site nav{align-items:flex-start!important;gap:.75rem!important}
   .happy-site nav>a{width:100%;font-size:.72rem!important;letter-spacing:.13em!important}
-  .happy-site nav>div{width:100%;gap:.8rem!important;font-size:.78rem!important;overflow-x:auto;padding-bottom:.25rem;white-space:nowrap}
+  .happy-site nav>div{width:100%;flex-wrap:nowrap!important;gap:1rem!important;font-size:.78rem!important;overflow-x:auto;padding:.15rem 0 .5rem;white-space:nowrap;scrollbar-width:none}
+  .happy-site nav>div::-webkit-scrollbar{display:none}
   .happy-site header{padding:.25rem 0 .5rem!important}
   .happy-site header h1 span:first-child{font-size:clamp(3.4rem,20vw,5.2rem)!important;line-height:.86!important;letter-spacing:-.065em!important}
   .happy-site header h1 span:nth-child(2){font-size:1.35rem!important;letter-spacing:.1em!important;margin-top:.65rem!important}
@@ -52,7 +53,9 @@
   .happy-site header p span[class*="text-3xl"]{font-size:1.65rem!important}
   .happy-site form,.happy-site article,.happy-site aside{border-radius:1.25rem!important;padding:1rem!important}
   .happy-site textarea{min-height:150px}
-  .happy-site button{min-height:44px;width:100%;padding-left:1rem!important;padding-right:1rem!important}
+  .happy-site button{min-height:44px}
+  .happy-site form>button,.happy-site article>button,.happy-site section[aria-label="Save this reading"]>button{width:100%}
+  .happy-site button[aria-label="Speak your dream"]{width:2.75rem!important;height:2.75rem!important;min-height:2.75rem!important;padding:0!important}
   .happy-site button+span{display:block;margin:.65rem 0 0!important;text-align:center}
 }
 
