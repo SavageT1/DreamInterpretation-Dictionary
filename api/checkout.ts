@@ -90,6 +90,8 @@ export default async function handler(request: IncomingMessage, response: Server
   } catch (error) {
     console.error('Checkout creation failed', {
       name: error instanceof Error ? error.name : 'UnknownError',
+      message: error instanceof Error ? error.message : 'Unknown Stripe error',
+      plan,
     });
     return sendJson(response, 502, {
       error: 'Checkout could not be opened. Please try again.',
