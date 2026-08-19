@@ -28,14 +28,12 @@ export default async function handler(request: IncomingMessage, response: Server
     const session = await stripeRequest(
       `/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
     );
-    const expectedPriceId = process.env.STRIPE_PRICE_ID;
     const subscriptionId =
       typeof session.subscription === 'string'
         ? session.subscription
         : (session.subscription as { id?: unknown } | undefined)?.id;
 
     if (
-      !expectedPriceId ||
       session.status !== 'complete' ||
       session.mode !== 'subscription' ||
       session.client_reference_id !== checkoutNonce ||
@@ -47,15 +45,15 @@ export default async function handler(request: IncomingMessage, response: Server
     const subscription = await stripeRequest(
       `/v1/subscriptions/${encodeURIComponent(subscriptionId)}?expand[]=items.data.price`,
     );
-    const subscriptionItems = (
-      subscription.items as { data?: Array<{ price?: { id?: unknown } }> } | undefined
-    )?.data;
-    const hasExpectedPrice = subscriptionItems?.some(
-      (item) => item.price?.id === expectedPriceId,
-    );
+    const metadata = subscription.metadata as { product?: unknown; plan?: unknown } | undefined;
+    const validPlans = new Set(['weekly', 'monthly', 'annual']);
+    const hasExpectedProduct =
+      metadata?.product === 'dream_interpretation_premium' &&
+      typeof metadata.plan === 'string' &&
+      validPlans.has(metadata.plan);
     const isActive =
       subscription.status === 'active' || subscription.status === 'trialing';
-    if (!hasExpectedPrice || !isActive) {
+    if (!hasExpectedProduct || !isActive) {
       return sendJson(response, 402, { error: 'Premium subscription was not found.' });
     }
 

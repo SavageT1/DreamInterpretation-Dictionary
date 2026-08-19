@@ -28,6 +28,12 @@ function getPriceIdForPlan(plan: PlanId): string | undefined {
   }
 }
 
+const PLAN_DETAILS = {
+  weekly: { amount: '399', interval: 'week', name: 'DREAM Premium Weekly' },
+  monthly: { amount: '899', interval: 'month', name: 'DREAM Premium Monthly' },
+  annual: { amount: '4999', interval: 'year', name: 'DREAM Premium Annual' },
+} as const;
+
 async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
@@ -57,18 +63,13 @@ export default async function handler(request: IncomingMessage, response: Server
   const requestedPlan = body.plan;
   const plan: PlanId = isValidPlan(requestedPlan) ? requestedPlan : 'weekly'; // default keeps old callers working
 
-  const priceId = getPriceIdForPlan(plan);
-  if (!priceId) {
-    return sendJson(response, 503, { error: 'This plan is not configured yet.' });
-  }
-
   try {
     const origin = getPublicOrigin();
     const checkoutNonce = createCheckoutNonce();
+    const details = PLAN_DETAILS[plan];
     const form = new URLSearchParams({
       mode: 'subscription',
       client_reference_id: checkoutNonce.nonce,
-      'line_items[0][price]': priceId,
       'line_items[0][quantity]': '1',
       success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancelled`,
@@ -76,11 +77,37 @@ export default async function handler(request: IncomingMessage, response: Server
       'subscription_data[metadata][product]': 'dream_interpretation_premium',
       'subscription_data[metadata][plan]': plan,
     });
-    const session = await stripeRequest('/v1/checkout/sessions', {
+    const configuredPriceId = getPriceIdForPlan(plan);
+    if (configuredPriceId) {
+      form.set('line_items[0][price]', configuredPriceId);
+    } else {
+      form.set('line_items[0][price_data][currency]', 'usd');
+      form.set('line_items[0][price_data][unit_amount]', details.amount);
+      form.set('line_items[0][price_data][recurring][interval]', details.interval);
+      form.set('line_items[0][price_data][product_data][name]', details.name);
+    }
+    let session;
+    try {
+      session = await stripeRequest('/v1/checkout/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form,
+      });
+    } catch (error) {
+      if (!configuredPriceId || !(error instanceof Error) || !error.message.includes('No such price')) {
+        throw error;
+      }
+      form.delete('line_items[0][price]');
+      form.set('line_items[0][price_data][currency]', 'usd');
+      form.set('line_items[0][price_data][unit_amount]', details.amount);
+      form.set('line_items[0][price_data][recurring][interval]', details.interval);
+      form.set('line_items[0][price_data][product_data][name]', details.name);
+      session = await stripeRequest('/v1/checkout/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form,
-    });
+      });
+    }
     return sendJson(
       response,
       200,
