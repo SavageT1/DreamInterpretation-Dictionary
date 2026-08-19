@@ -892,12 +892,12 @@ export default function DreamJournal() {
                         offer: item.title,
                       })
                     }
-                    className="group overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20"
+                    className="group mx-auto block w-full max-w-md overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20"
                   >
                     <div className="relative isolate overflow-hidden">
                       <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-90`} />
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.12),transparent_35%)]" />
-                      <div className="relative space-y-4 p-4">
+                      <div className="relative space-y-3 p-3 sm:p-4">
                         <div className="flex items-center justify-between gap-3">
                           <span className="inline-flex items-center rounded-full border border-white/20 bg-black/15 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white/90">
                             Sponsored
@@ -907,8 +907,8 @@ export default function DreamJournal() {
                           </span>
                         </div>
 
-                        <div className="grid gap-4 sm:grid-cols-[144px_1fr]">
-                          <div className="relative h-36 overflow-hidden rounded-[1.35rem] border border-white/15 bg-black/20 shadow-[0_20px_40px_rgba(0,0,0,0.28)]">
+                        <div className="grid gap-3 sm:grid-cols-[112px_1fr]">
+                          <div className="relative h-24 overflow-hidden rounded-2xl border border-white/15 bg-black/20 shadow-[0_20px_40px_rgba(0,0,0,0.28)] sm:h-28">
                             {item.imageSrc ? (
                               <img
                                 src={item.imageSrc}
@@ -930,8 +930,8 @@ export default function DreamJournal() {
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                           <div className="max-w-xl">
                             <p className="text-[10px] uppercase tracking-[0.3em] text-white/75">{item.label}</p>
-                            <h3 className="mt-2 font-display text-2xl text-white sm:text-[1.9rem]">{item.title}</h3>
-                            <p className="mt-2 text-sm leading-6 text-white/85 sm:text-[0.95rem]">
+                            <h3 className="mt-2 font-display text-xl text-white sm:text-2xl">{item.title}</h3>
+                            <p className="mt-2 text-sm leading-5 text-white/85">
                               {item.description}
                             </p>
                           </div>
