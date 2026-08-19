@@ -244,12 +244,41 @@ export default function DreamJournal() {
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
   const [hasShownPaywallThisReading, setHasShownPaywallThisReading] = useState(false);
   const interpretTimer = useRef<number | null>(null);
   const pendingDream = useRef('');
   const hasTrackedDreamStart = useRef(false);
 
   const speech = useSpeechToText((text) => setDream(text));
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  function toggleReadAloud() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !hasFreshReading) return;
+    if (isReadingAloud) {
+      window.speechSynthesis.cancel();
+      setIsReadingAloud(false);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(interpretation.replace(/[#*_>`]/g, ''));
+    utterance.rate = 0.82;
+    utterance.pitch = 0.92;
+    utterance.volume = 0.88;
+    const voices = window.speechSynthesis.getVoices();
+    utterance.voice = voices.find((voice) => /Samantha|Karen|Moira|Google UK English Female|Microsoft Zira/i.test(voice.name)) || voices.find((voice) => /female|natural|siri/i.test(voice.name)) || voices.find((voice) => voice.lang?.startsWith('en')) || null;
+    utterance.onend = () => setIsReadingAloud(false);
+    utterance.onerror = () => setIsReadingAloud(false);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setIsReadingAloud(true);
+    trackEvent('dream_read_aloud_started');
+  }
 
   useEffect(() => {
     try {
@@ -655,6 +684,16 @@ export default function DreamJournal() {
                     : displayedInterpretation || 'Describe your dream, then select Interpret dream for your full reading.'}
                 </p>
 
+                {hasFreshReading ? (
+                  <div className="mt-5 flex flex-wrap items-center gap-3 border-y border-white/10 py-3">
+                    <button type="button" onClick={toggleReadAloud} className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20">
+                      <span aria-hidden="true">{isReadingAloud ? 'Ⅱ' : '▶'}</span>
+                      {isReadingAloud ? 'Pause reading' : 'Read aloud'}
+                    </button>
+                    <span className="text-xs text-slate-500">A calm, slower voice for quiet reflection</span>
+                  </div>
+                ) : null}
+
                 {interpretationError ? (
                   <p className="mt-4 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-100">
                     {interpretationError}
@@ -663,6 +702,10 @@ export default function DreamJournal() {
 
                 {hasFreshReading ? (
                   <section className="mt-6 border-t border-white/10 pt-5" aria-label="Save this reading">
+                    <button type="button" onClick={toggleReadAloud} className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20">
+                      <span aria-hidden="true">{isReadingAloud ? 'Ⅱ' : '▶'}</span>
+                      {isReadingAloud ? 'Pause reading' : 'Read aloud again'}
+                    </button>
                     <p className="text-sm font-semibold text-white">Add it to your Dream Vault?</p>
                     <p className="mt-1 text-xs leading-5 text-slate-400">
                       These details are optional and only help you find this dream later.
