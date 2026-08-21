@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   createCheckoutNonce,
+  getFirebaseIdentity,
   getPublicOrigin,
   PAYMENTS_ENABLED,
   sendJson,
@@ -66,6 +67,7 @@ export default async function handler(request: IncomingMessage, response: Server
   try {
     const origin = getPublicOrigin();
     const checkoutNonce = createCheckoutNonce();
+    const identity = await getFirebaseIdentity(request);
     const details = PLAN_DETAILS[plan];
     const form = new URLSearchParams({
       mode: 'subscription',
@@ -77,6 +79,10 @@ export default async function handler(request: IncomingMessage, response: Server
       'subscription_data[metadata][product]': 'dream_interpretation_premium',
       'subscription_data[metadata][plan]': plan,
     });
+    if (identity) {
+      form.set('customer_email', identity.email);
+      form.set('subscription_data[metadata][firebase_uid]', identity.uid);
+    }
     const configuredPriceId = getPriceIdForPlan(plan);
     if (configuredPriceId) {
       form.set('line_items[0][price]', configuredPriceId);

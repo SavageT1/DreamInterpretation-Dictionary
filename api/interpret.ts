@@ -2,9 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   createFreeUsageCookie,
   FREE_INTERPRETATION_LIMIT,
-  isSubscriptionActive,
+  getActiveSubscriptionId,
   readFreeUsage,
-  readPremiumSubscriptionId,
   sendJson,
 } from './_shared.js';
 
@@ -97,10 +96,8 @@ export default async function handler(request: RequestWithBody, response: Server
     });
   }
 
-  const premiumSubscriptionId = readPremiumSubscriptionId(request);
-  const hasPremium = premiumSubscriptionId
-    ? await isSubscriptionActive(premiumSubscriptionId)
-    : false;
+  const premiumSubscriptionId = await getActiveSubscriptionId(request);
+  const hasPremium = Boolean(premiumSubscriptionId);
   const freeUsage = readFreeUsage(request);
 
   if (!hasPremium && freeUsage >= FREE_INTERPRETATION_LIMIT) {
@@ -187,4 +184,3 @@ export default async function handler(request: RequestWithBody, response: Server
     });
   }
 }
-

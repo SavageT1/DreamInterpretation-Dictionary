@@ -1,10 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   FREE_INTERPRETATION_LIMIT,
-  isSubscriptionActive,
+  getActiveSubscriptionId,
   PAYMENTS_ENABLED,
   readFreeUsage,
-  readPremiumSubscriptionId,
   sendJson,
 } from './_shared.js';
 
@@ -14,8 +13,8 @@ export default async function handler(request: IncomingMessage, response: Server
     return sendJson(response, 405, { error: 'Method not allowed.' });
   }
 
-  const subscriptionId = readPremiumSubscriptionId(request);
-  const premium = subscriptionId ? await isSubscriptionActive(subscriptionId) : false;
+  const subscriptionId = await getActiveSubscriptionId(request);
+  const premium = Boolean(subscriptionId);
   const freeRemaining = Math.max(0, FREE_INTERPRETATION_LIMIT - readFreeUsage(request));
   return sendJson(response, 200, {
     premium,

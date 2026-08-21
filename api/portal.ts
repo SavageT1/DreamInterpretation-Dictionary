@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   getPublicOrigin,
-  readPremiumSubscriptionId,
+  getActiveSubscriptionId,
   sendJson,
   stripeRequest,
 } from './_shared.js';
@@ -12,7 +12,7 @@ export default async function handler(request: IncomingMessage, response: Server
     return sendJson(response, 405, { error: 'Method not allowed.' });
   }
 
-  const subscriptionId = readPremiumSubscriptionId(request);
+  const subscriptionId = await getActiveSubscriptionId(request);
   if (!subscriptionId) {
     return sendJson(response, 401, { error: 'Premium access was not found.' });
   }

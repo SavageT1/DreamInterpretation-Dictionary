@@ -173,3 +173,63 @@ export async function isSubscriptionActive(subscriptionId: string) {
     return false;
   }
 }
+
+type FirebaseIdentity = { uid: string; email: string };
+
+export async function getFirebaseIdentity(request: IncomingMessage): Promise<FirebaseIdentity | null> {
+  const authorization = request.headers.authorization ?? '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+  if (!token) return null;
+
+  try {
+    const apiKey = process.env.FIREBASE_WEB_API_KEY || 'AIzaSyDYVKlLi2AWSmytDBU9IZSM1-O_uhIwdpU';
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: token }),
+      },
+    );
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      users?: Array<{ localId?: unknown; email?: unknown; emailVerified?: unknown }>;
+    };
+    const user = data.users?.[0];
+    return user && typeof user.localId === 'string' && typeof user.email === 'string'
+      ? { uid: user.localId, email: user.email }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function findActiveSubscriptionForEmail(email: string) {
+  try {
+    const customers = await stripeRequest(
+      `/v1/customers?email=${encodeURIComponent(email)}&limit=10`,
+    );
+    const customerList = (customers.data as Array<{ id?: unknown }> | undefined) ?? [];
+    for (const customer of customerList) {
+      if (typeof customer.id !== 'string') continue;
+      const subscriptions = await stripeRequest(
+        `/v1/subscriptions?customer=${encodeURIComponent(customer.id)}&status=all&limit=20`,
+      );
+      const active = ((subscriptions.data as Array<{ id?: unknown; status?: unknown }> | undefined) ?? [])
+        .find((subscription) => subscription.status === 'active' || subscription.status === 'trialing');
+      if (typeof active?.id === 'string') return active.id;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export async function getActiveSubscriptionId(request: IncomingMessage) {
+  const cookieSubscription = readPremiumSubscriptionId(request);
+  if (cookieSubscription && await isSubscriptionActive(cookieSubscription)) {
+    return cookieSubscription;
+  }
+  const identity = await getFirebaseIdentity(request);
+  return identity ? findActiveSubscriptionForEmail(identity.email) : null;
+}

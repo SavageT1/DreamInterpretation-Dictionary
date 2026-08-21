@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import FEATURED_OFFER_IMAGE from '../../som-sleep-powder-drink-mix-all-flavors.jpeg';
 import { trackEvent } from '../lib/analytics';
+import { auth, db, googleProvider } from '../lib/firebase';
+import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
+import { collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
 type VaultEntry = {
   id: string;
@@ -242,6 +245,11 @@ export default function DreamJournal() {
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<PlanId | null>(null);
   const [vault, setVault] = useState<VaultEntry[]>([]);
+  const [member, setMember] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [accountError, setAccountError] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isReadingAloud, setIsReadingAloud] = useState(false);
@@ -294,15 +302,40 @@ export default function DreamJournal() {
     }
   }, []);
 
+  useEffect(() => onAuthStateChanged(auth, (nextMember) => {
+    setMember(nextMember);
+    setAuthReady(true);
+  }), []);
+
   useEffect(() => {
+    if (!authReady || !member) return;
+    setIsCloudSyncing(true);
+    const dreams = collection(db, 'users', member.uid, 'dreams');
+    const unsubscribe = onSnapshot(
+      dreams,
+      (snapshot) => {
+        const cloudVault = snapshot.docs.map((item) => item.data() as VaultEntry);
+        setVault(cloudVault);
+        setIsCloudSyncing(false);
+        setAccountError('');
+      },
+      () => {
+        setIsCloudSyncing(false);
+        setAccountError('Cloud sync is not ready yet. Your local dreams remain on this device.');
+      },
+    );
+    return unsubscribe;
+  }, [authReady, member]);
+
+  useEffect(() => {
+    if (!authReady) return;
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get('session_id');
-    const verifyPurchase =
+    accountHeaders().then((headers) => (
       params.get('checkout') === 'success' && sessionId
-        ? fetch(`/api/verify-purchase?session_id=${encodeURIComponent(sessionId)}`)
-        : fetch('/api/access');
-
-    verifyPurchase
+        ? fetch(`/api/verify-purchase?session_id=${encodeURIComponent(sessionId)}`, { headers })
+        : fetch('/api/access', { headers })
+    ))
       .then(async (response) => {
         const data = (await response.json()) as {
           premium?: boolean;
@@ -326,15 +359,52 @@ export default function DreamJournal() {
           setInterpretationError('Your payment is processing, but premium access could not be verified yet.');
         }
       });
-  }, []);
+  }, [authReady, member]);
 
   useEffect(() => {
+    if (member) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(vault));
     } catch {
       // Ignore storage failures so the app still works offline.
     }
-  }, [vault]);
+  }, [member, vault]);
+
+  async function accountHeaders() {
+    if (!member) return {};
+    return { Authorization: `Bearer ${await member.getIdToken()}` };
+  }
+
+  async function handleSignIn() {
+    setIsSigningIn(true);
+    setAccountError('');
+    try {
+      const localVault = [...vault];
+      const result = await signInWithPopup(auth, googleProvider);
+      await Promise.all(localVault.map((entry) =>
+        setDoc(doc(db, 'users', result.user.uid, 'dreams', entry.id), entry, { merge: true }),
+      ));
+      trackEvent('member_signed_in');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      setAccountError(
+        message.includes('unauthorized-domain')
+          ? 'Secure sign-in is being connected to this domain. Please try again shortly.'
+          : message.includes('popup-closed') || message.includes('cancelled-popup')
+            ? 'Sign-in was cancelled.'
+            : 'Sign-in could not be completed. Please try again.',
+      );
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  async function handleSignOut() {
+    await signOut(auth);
+    setVault([]);
+    setIsPremium(false);
+    trackEvent('member_signed_out');
+  }
 
   useEffect(() => {
     return () => {
@@ -431,7 +501,7 @@ export default function DreamJournal() {
     try {
       const response = await fetch('/api/interpret', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await accountHeaders()) },
         body: JSON.stringify({ dream: cleanDream, notes: dreamBookNotes.trim() }),
       });
       const result = (await response.json()) as {
@@ -473,12 +543,16 @@ export default function DreamJournal() {
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     const cleanDream = dream.trim();
     if (!cleanDream) return;
 
     const hasFreshReading = interpretedDream === cleanDream && interpretation.trim().length > 0;
     if (!hasFreshReading) return;
+    if (!isPremium && vault.length >= FREE_ENTRY_LIMIT) {
+      setShowPaywall(true);
+      return;
+    }
     const nextInterpretation = interpretation;
     const nextEntry: VaultEntry = {
       id: createId(),
@@ -492,7 +566,16 @@ export default function DreamJournal() {
 
     setInterpretation(nextInterpretation);
     setInterpretedDream(cleanDream);
-    setVault((current) => [nextEntry, ...current]);
+    if (member) {
+      try {
+        await setDoc(doc(db, 'users', member.uid, 'dreams', nextEntry.id), nextEntry);
+      } catch {
+        setInterpretationError('This dream could not be synced. Please try again.');
+        return;
+      }
+    } else {
+      setVault((current) => [nextEntry, ...current]);
+    }
     setSelectedId(nextEntry.id);
     trackEvent('dream_saved', { vault_size: vault.length + 1 });
   }
@@ -506,14 +589,23 @@ export default function DreamJournal() {
     setSelectedId(entry.id);
   }
 
-  function toggleStar(id: string) {
+  async function toggleStar(id: string) {
+    const entry = vault.find((item) => item.id === id);
+    if (member && entry) {
+      await updateDoc(doc(db, 'users', member.uid, 'dreams', id), { starred: !entry.starred });
+      return;
+    }
     setVault((current) =>
       current.map((entry) => (entry.id === id ? { ...entry, starred: !entry.starred } : entry)),
     );
   }
 
-  function removeEntry(id: string) {
+  async function removeEntry(id: string) {
+    if (member) {
+      await deleteDoc(doc(db, 'users', member.uid, 'dreams', id));
+    } else {
     setVault((current) => current.filter((entry) => entry.id !== id));
+    }
     if (selectedId === id) {
       setSelectedId(null);
     }
@@ -525,9 +617,16 @@ export default function DreamJournal() {
     setInterpretationError('');
 
     try {
+      if (!member && route === '/api/checkout') {
+        setInterpretationError('Sign in first so your membership and Dream Vault work on every device.');
+        setIsStartingCheckout(false);
+        setCheckoutPlan(null);
+        document.getElementById('dream-vault')?.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
       const response = await fetch(route, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await accountHeaders()) },
         // The backend defaults to "weekly" if no plan is sent, so this is
         // safe for the /api/portal call (which ignores the body).
         body: route === '/api/checkout' ? JSON.stringify({ plan: plan ?? 'weekly' }) : undefined,
@@ -565,9 +664,7 @@ export default function DreamJournal() {
       <section className="relative mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
         <nav className="flex flex-wrap items-center justify-between gap-4" aria-label="Primary navigation">
           <a href="/" className="flex items-center gap-2.5 font-display text-sm font-bold uppercase tracking-[0.22em] text-slate-900">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-cyan-400 text-sm font-black text-slate-950 sm:h-9 sm:w-9">
-              D
-            </span>
+            <img src="/dream-brand-icon.png" alt="" width="36" height="36" className="brand-logo h-9 w-9 rounded-xl" />
             <span>Dream Interpretation Dictionary</span>
           </a>
           <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-700">
@@ -582,7 +679,7 @@ export default function DreamJournal() {
 
         <header className="max-w-4xl py-4">
           <h1 className="font-display uppercase text-slate-950">
-            <span className="block text-7xl font-black leading-[0.82] tracking-[-0.07em] sm:text-8xl lg:text-[9rem]">Dream</span>
+            <span className="brand-gradient-text block text-7xl font-black leading-[0.82] tracking-[-0.07em] sm:text-8xl lg:text-[9rem]">Dream</span>
             <span className="mt-4 block text-2xl font-bold tracking-[0.16em] text-teal-700 sm:text-4xl">Interpretation</span>
             <span className="mt-2 block text-sm font-bold tracking-[0.5em] text-violet-700 sm:text-base">Dictionary</span>
           </h1>
@@ -781,8 +878,31 @@ export default function DreamJournal() {
                   <h2 className="mt-2 font-display text-2xl text-white">Your saved dreams</h2>
                 </div>
                 <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
-                  {freeSlotsLeft} free saves remaining
+                  {member ? (isCloudSyncing ? 'Syncing...' : 'Cloud synced') : `${freeSlotsLeft} free saves remaining`}
                 </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-gradient-to-r from-cyan-400/10 to-fuchsia-500/10 p-4">
+                {member ? (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Your Vault is protected</p>
+                      <p className="mt-1 break-all text-xs text-slate-300">Signed in as {member.email}</p>
+                    </div>
+                    <button type="button" onClick={handleSignOut} className="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-white hover:bg-white/10">
+                      Sign out
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm font-semibold text-white">Keep your dreams on every device</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">Sign in before upgrading so your membership and private Dream Vault stay connected.</p>
+                    <button type="button" onClick={handleSignIn} disabled={isSigningIn} className="mt-3 inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-60">
+                      {isSigningIn ? 'Connecting...' : 'Continue with Google'}
+                    </button>
+                  </div>
+                )}
+                {accountError ? <p className="mt-3 text-xs leading-5 text-rose-200">{accountError}</p> : null}
               </div>
 
               <div className="mt-4 space-y-3">

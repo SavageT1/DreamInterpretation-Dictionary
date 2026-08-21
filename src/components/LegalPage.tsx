@@ -2,20 +2,20 @@ import type { ReactNode } from 'react';
 
 type LegalPageProps = { path: string };
 
-const updated = 'July 25, 2026';
+const updated = 'August 20, 2026';
 
 const pages: Record<string, { title: string; intro: string; content: ReactNode }> = {
   '/privacy': {
     title: 'Privacy Policy',
     intro: `Last updated ${updated}. This policy explains how Dream Interpretation Dictionary handles information.`,
     content: <>
-      <h2>Information you enter</h2><p>Dream text, titles, notes, and saved readings are stored in your browser on your device unless they are sent to our interpretation service. Dream text submitted for a reading is processed to generate that requested reading. Do not enter names, email addresses, phone numbers, financial information, medical records, or other identifying information.</p>
+      <h2>Information you enter</h2><p>Dream text submitted for a reading is processed to generate that requested reading. If you choose to sign in, saved dream titles, notes, dreams, and readings are stored in your private Firebase account so they can appear across your devices. Signed-out saves remain in your browser. Do not enter names, phone numbers, financial information, medical records, or other identifying information.</p>
       <h2>Analytics and advertising</h2><p>We use Google Analytics to understand aggregated site usage. Google AdSense may be used to display advertising after approval. Google and other third-party vendors may use cookies, web beacons, IP addresses, or similar identifiers to measure traffic, prevent fraud, report performance, and—when you consent—personalize advertising.</p>
       <p>Google's use of information is described in <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">How Google uses information from sites or apps that use its services</a>. You can manage personalized advertising in <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google Ads Settings</a>.</p>
-      <h2>Your choices</h2><p>You may reject optional analytics and advertising storage using the notice shown on this site. You can clear saved dreams and consent choices by clearing this site's browser storage. Browser controls can also block or remove cookies.</p>
+      <h2>Your choices</h2><p>You may reject optional analytics and advertising storage using the notice shown on this site. You can delete individual cloud-saved dreams from your Vault, sign out, or clear signed-out saves and consent choices through browser storage controls.</p>
       <h2>Affiliate links</h2><p>Some clearly labeled sponsored links are affiliate links. We may receive a commission if you make a qualifying purchase, at no extra cost to you. Affiliate partners may process visits under their own privacy policies.</p>
       <h2>Interpretation and payment providers</h2><p>Dream text submitted for a reading is sent securely to our automated interpretation provider to generate the requested response. We ask the provider not to retain the response for later retrieval. Subscription checkout and billing are handled by Stripe; we do not receive or store your complete payment-card number.</p>
-      <h2>Data retention and security</h2><p>Local journal entries remain on your device until you delete them or clear browser storage. Interpretation requests are processed only to return the requested result. We use HTTPS and limit request size and frequency, but no online service can promise absolute security.</p>
+      <h2>Data retention and security</h2><p>Cloud journal entries remain in your private account until you delete them. Signed-out journal entries remain on your device until deleted or browser storage is cleared. Interpretation requests are processed to return the requested result. We use HTTPS, authenticated access controls, and request limits, but no online service can promise absolute security.</p>
       <h2>Children</h2><p>This general-audience service is not directed to children under 13, and we do not knowingly collect their personal information.</p>
       <h2>Contact</h2><p>Privacy questions can be sent to <a href="mailto:office@a1tradelines.com">office@a1tradelines.com</a>.</p>
     </>,
@@ -25,7 +25,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
       <h2>Educational and reflective use</h2><p>Dream readings are provided for entertainment, journaling, and personal reflection. Symbols do not have one universal meaning, and a reading is not a factual prediction or professional opinion.</p>
       <h2>No professional advice</h2><p>The service does not provide medical, mental-health, legal, or financial advice and is not a substitute for a qualified professional. If a dream or waking experience causes distress or raises safety concerns, contact an appropriate licensed professional or emergency service.</p>
       <h2>Acceptable use</h2><p>Do not misuse the service, attempt to disrupt it, submit unlawful material, probe its security, automate excessive requests, or enter another person's private information without permission.</p>
-      <h2>Saved information</h2><p>Your local dream vault depends on browser storage. You are responsible for keeping any copy you need; local entries may be lost if storage is cleared or the device changes.</p>
+      <h2>Saved information</h2><p>Signed-in Vault entries are synchronized through your private account. Signed-out entries depend on browser storage and may be lost if storage is cleared or the device changes.</p>
       <h2>Subscriptions and cancellation</h2><p>Premium access is a recurring monthly subscription at the price shown before checkout. Stripe processes payment and renews the subscription automatically until you cancel. You can cancel future renewals from the billing-management link on the dream tool; cancellation takes effect at the end of the current paid period. Except where law requires otherwise, completed subscription charges are non-refundable.</p>
       <h2>Third-party services</h2><p>Sponsored resources and other external links lead to independent websites. We do not control their products, availability, claims, prices, or privacy practices.</p>
       <h2>Changes and availability</h2><p>Features and these terms may change. The service is provided as available without a guarantee of uninterrupted operation or a particular interpretation outcome.</p>
@@ -35,7 +35,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
     title: 'About This Project', intro: 'Dream Interpretation Dictionary is a private-first reflection tool for exploring dream symbols without treating them as predictions.', content: <>
       <h2>Our purpose</h2><p>Dreams often combine memory, emotion, stress, imagination, and recent experiences. This site helps people slow down, identify prominent symbols, consider emotional context, and save personal observations over time.</p>
       <h2>How readings are created</h2><p>The tool looks at the dream's language, emotional tone, settings, actions, and recurring symbolic themes. Readings use tentative language because the dreamer—not a dictionary or model—has the strongest context for what a symbol means personally.</p>
-      <h2>Private-first journal</h2><p>Saved titles, notes, dreams, and readings are kept in your browser's local storage. You can use the interpretation without creating an account and choose whether to save afterward.</p>
+      <h2>Private-first journal</h2><p>You can use the interpretation without creating an account. Signing in protects saved titles, notes, dreams, and readings in a private cross-device Vault; signed-out saves remain local to that browser.</p>
       <h2>Funding</h2><p>The project is supported by clearly labeled affiliate recommendations and may use Google advertising. Commercial relationships do not change the interpretation text.</p>
     </>,
   },
