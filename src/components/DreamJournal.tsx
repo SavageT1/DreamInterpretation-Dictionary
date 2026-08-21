@@ -709,6 +709,8 @@ export default function DreamJournal() {
             <a href="#how-it-works">How it works</a>
             <a href="#premium">Premium</a>
             <a href="#dream-vault">Dream Vault</a>
+            <a href="/lucid-dreaming">Lucid dreaming</a>
+            <a href="/dream-symbols">Dream symbols</a>
             <a href="/about">About</a>
             <a href="/privacy">Privacy</a>
             <a href="/contact">Contact</a>
