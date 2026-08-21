@@ -44,6 +44,15 @@
 .happy-site .ai-reading h2,.happy-site .ai-reading p,.happy-site .ai-reading label,.happy-site .ai-reading span{color:#111827}
 .happy-site .ai-reading .text-slate-400,.happy-site .ai-reading .text-slate-500{color:#526075}
 .happy-site .ai-reading .text-cyan-100,.happy-site .ai-reading .text-cyan-200{color:#125d73}
+.happy-site .pricing-card-light .text-slate-950{color:#020617!important}
+.happy-site .pricing-card-light .text-slate-900{color:#0f172a!important}
+.happy-site .pricing-card-light .text-slate-700{color:#334155!important}
+.happy-site .pricing-card-light .text-slate-600{color:#475569!important}
+.happy-site .pricing-card-light .text-slate-500{color:#64748b!important}
+.happy-site .pricing-card-light .text-slate-400{color:#94a3b8!important}
+.happy-site .pricing-card-light button{color:#0f172a!important}
+.happy-site #premium{margin-top:-1.5rem}
+@media (min-width:640px){.happy-site #premium{margin-top:-2.5rem}}
 .dream-calendar{margin-top:1rem;border:1px solid #d7deea;border-radius:1rem;background:#f7f8fb;padding:1rem;color:#111827}
 .calendar-nav{display:grid;height:2rem;width:2rem;place-items:center;border:1px solid #cbd5e1;border-radius:.6rem;background:#fff;color:#334155;font-size:1.3rem;line-height:1}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem}

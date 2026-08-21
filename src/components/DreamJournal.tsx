@@ -1141,10 +1141,10 @@ export default function DreamJournal() {
               return (
                 <div
                   key={planId}
-                  className={`relative rounded-3xl border p-6 ${
+                  className={`pricing-card relative rounded-3xl border p-6 ${
                     isMonthly
                       ? 'border-fuchsia-400/60 bg-gradient-to-br from-fuchsia-500/10 to-cyan-400/10'
-                      : 'border-slate-900/10 bg-white'
+                      : 'pricing-card-light border-slate-900/10 bg-white'
                   }`}
                 >
                   {isMonthly ? (
