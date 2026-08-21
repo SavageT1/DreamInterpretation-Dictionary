@@ -746,7 +746,7 @@ export default function DreamJournal() {
                     onChange={(event) => handleDreamChange(event.target.value)}
                     rows={8}
                     placeholder="I was walking through a house I didn't recognize, but it felt familiar..."
-                    className="w-full rounded-3xl border border-white/40 bg-white px-4 py-4 pr-14 text-sm leading-6 text-slate-900 shadow-lg shadow-black/20 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400/60"
+                    className="reader-field w-full rounded-3xl border border-white/40 bg-white px-4 py-4 pr-14 text-sm leading-6 text-slate-900 shadow-lg shadow-black/20 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400/60"
                   />
                   <button
                     type="button"
