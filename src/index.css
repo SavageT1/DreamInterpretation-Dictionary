@@ -38,6 +38,21 @@
 .brand-logo{filter:drop-shadow(0 0 24px rgba(26,173,255,.22)) drop-shadow(0 0 28px rgba(189,48,255,.18))}
 .brand-gradient-text{background:linear-gradient(90deg,#20d7ff 0%,#478cff 40%,#8f45ff 68%,#f03cff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 
+/* Dream Vault: calm reading and writing surfaces for night use. */
+.happy-site .reader-field,.happy-site .ai-reading{background:#f7f8fb;color:#111827;border-color:#d7deea}
+.happy-site .reader-field::placeholder{color:#68758a}
+.happy-site .ai-reading h2,.happy-site .ai-reading p,.happy-site .ai-reading label,.happy-site .ai-reading span{color:#111827}
+.happy-site .ai-reading .text-slate-400,.happy-site .ai-reading .text-slate-500{color:#526075}
+.happy-site .ai-reading .text-cyan-100,.happy-site .ai-reading .text-cyan-200{color:#125d73}
+.dream-calendar{margin-top:1rem;border:1px solid #d7deea;border-radius:1rem;background:#f7f8fb;padding:1rem;color:#111827}
+.calendar-nav{display:grid;height:2rem;width:2rem;place-items:center;border:1px solid #cbd5e1;border-radius:.6rem;background:#fff;color:#334155;font-size:1.3rem;line-height:1}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem}
+.calendar-weekday{text-align:center;color:#64748b;font-size:.68rem;font-weight:700}
+.calendar-day{position:relative;display:grid;min-height:2.45rem;place-items:center;border:1px solid #e2e8f0;border-radius:.65rem;background:#fff;color:#1e293b;font-size:.75rem}
+.calendar-empty{border-color:transparent;background:transparent}
+.calendar-has-entry{border-color:#8b5cf6;background:#eef2ff;font-weight:700;cursor:pointer}
+.calendar-has-entry img{position:absolute;right:.18rem;top:.18rem;height:.75rem;width:.75rem;border-radius:.25rem;object-fit:cover}
+
 .shooting-star-emitter,.shooting-star-emitter-2{position:absolute;width:2px;height:2px;border-radius:50%;pointer-events:none;animation:shooting-star 15s ease-in-out infinite}.shooting-star-emitter{top:10%;right:15%;background:linear-gradient(-45deg,#fff,rgba(190,55,255,0));filter:drop-shadow(0 0 6px rgba(190,55,255,.85));animation-delay:4s}.shooting-star-emitter-2{top:25%;right:-5%;background:linear-gradient(-45deg,#fff,rgba(32,215,255,0));filter:drop-shadow(0 0 6px rgba(32,215,255,.85));animation-duration:18s;animation-delay:10s}
 
 @media (max-width:640px){

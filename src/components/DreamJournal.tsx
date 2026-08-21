@@ -231,6 +231,51 @@ function useSpeechToText(onTranscript: (text: string) => void) {
   return { isListening, isSupported, toggle };
 }
 
+function DreamCalendar({ entries, onSelect }: { entries: VaultEntry[]; onSelect: (id: string) => void }) {
+  const latest = entries[0]?.createdAt ? new Date(entries[0].createdAt) : new Date();
+  const [month, setMonth] = useState(new Date(latest.getFullYear(), latest.getMonth(), 1));
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const firstDay = new Date(year, monthIndex, 1).getDay();
+  const byDay = new Map<string, VaultEntry[]>();
+
+  entries.forEach((entry) => {
+    const key = new Date(entry.createdAt).toISOString().slice(0, 10);
+    byDay.set(key, [...(byDay.get(key) || []), entry]);
+  });
+
+  return (
+    <section className="dream-calendar" aria-label="Dream calendar">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
+          <p className="text-xs text-slate-600">Dream logo = entry saved</p>
+        </div>
+        <div className="flex gap-1">
+          <button type="button" aria-label="Previous month" onClick={() => setMonth(new Date(year, monthIndex - 1, 1))} className="calendar-nav">‹</button>
+          <button type="button" aria-label="Next month" onClick={() => setMonth(new Date(year, monthIndex + 1, 1))} className="calendar-nav">›</button>
+        </div>
+      </div>
+      <div className="calendar-grid mt-3">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <span key={`${day}-${index}`} className="calendar-weekday">{day}</span>)}
+        {Array.from({ length: firstDay }).map((_, index) => <span key={`empty-${index}`} className="calendar-day calendar-empty" />)}
+        {Array.from({ length: daysInMonth }, (_, index) => {
+          const day = index + 1;
+          const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const dayEntries = byDay.get(key) || [];
+          return (
+            <button key={key} type="button" className={`calendar-day ${dayEntries.length ? 'calendar-has-entry' : ''}`} onClick={() => dayEntries[0] && onSelect(dayEntries[0].id)} aria-label={dayEntries.length ? `${day} with dream entry` : `${day}`}>
+              <span>{day}</span>
+              {dayEntries.length ? <img src="/dream-brand-icon.png" alt="" /> : null}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function DreamJournal() {
   const [dream, setDream] = useState('');
   const [dreamBookNotes, setDreamBookNotes] = useState('');
@@ -617,13 +662,6 @@ export default function DreamJournal() {
     setInterpretationError('');
 
     try {
-      if (!member && route === '/api/checkout') {
-        setInterpretationError('Sign in first so your membership and Dream Vault work on every device.');
-        setIsStartingCheckout(false);
-        setCheckoutPlan(null);
-        document.getElementById('dream-vault')?.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
       const response = await fetch(route, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await accountHeaders()) },
@@ -762,7 +800,7 @@ export default function DreamJournal() {
             </form>
 
             <div className="grid gap-6 md:grid-cols-2">
-              <article className="rounded-3xl border border-white/10 bg-white/5 p-5" aria-live="polite">
+              <article className="ai-reading rounded-3xl border border-white/10 bg-white/5 p-5" aria-live="polite">
                 <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Live reading</p>
                 <h2 className="mt-3 font-display text-2xl text-white">
                   {isInterpreting ? 'Reading your dream...' : liveTitle || 'Your reading will appear here'}
@@ -814,7 +852,7 @@ export default function DreamJournal() {
                         <input
                           value={title}
                           onChange={(event) => setTitle(event.target.value)}
-                          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
+                          className="reader-field rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
                         />
                       </label>
 
@@ -824,7 +862,7 @@ export default function DreamJournal() {
                           value={dreamBookNotes}
                           onChange={(event) => setDreamBookNotes(event.target.value)}
                           rows={3}
-                          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-cyan-400/60 focus:bg-white/10"
+                          className="reader-field rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-cyan-400/60 focus:bg-white/10"
                           placeholder="Add symbols, book references, or anything you want to remember."
                         />
                       </label>
@@ -881,6 +919,8 @@ export default function DreamJournal() {
                   {member ? (isCloudSyncing ? 'Syncing...' : 'Cloud synced') : `${freeSlotsLeft} free saves remaining`}
                 </div>
               </div>
+
+              <DreamCalendar entries={orderedVault} onSelect={setSelectedId} />
 
               <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-gradient-to-r from-cyan-400/10 to-fuchsia-500/10 p-4">
                 {member ? (
@@ -1089,7 +1129,8 @@ export default function DreamJournal() {
 
         <section id="premium" className="rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-700">Premium</p>
-          <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold text-slate-950">Start for $3.99/week — upgrade to save more</h2>
+          <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold text-slate-950">Keep your dream practice going with unlimited access</h2>
+          <p className="mt-3 max-w-2xl text-slate-700">Your first readings are free. Premium unlocks unlimited interpretations, unlimited Vault saves, calendar history, and recurring pattern insights for less than a coffee a week.</p>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {(Object.keys(PLAN_DETAILS) as PlanId[]).map((planId) => {
@@ -1117,7 +1158,8 @@ export default function DreamJournal() {
                   {plan.save ? <p className="mt-1 text-xs font-semibold text-teal-600">{plan.save}</p> : null}
                   <ul className="mt-4 space-y-2 text-sm text-slate-700">
                     <li>Unlimited AI interpretations</li>
-                    <li>Unlimited saved dreams</li>
+                    <li>Unlimited Vault saves + calendar history</li>
+                    <li>Recurring pattern insights</li>
                     <li>Manage or cancel anytime via Stripe</li>
                   </ul>
                   <button
