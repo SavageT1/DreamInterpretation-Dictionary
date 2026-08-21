@@ -53,6 +53,8 @@
 .happy-site .pricing-card-light button{color:#0f172a!important}
 .happy-site #premium{margin-top:-1.5rem}
 @media (min-width:640px){.happy-site #premium{margin-top:-2.5rem}}
+.happy-site .affiliate-section{margin-top:4rem}
+@media (min-width:1024px){.happy-site .affiliate-section{margin-top:7rem}}
 .dream-calendar{margin-top:1rem;border:1px solid #d7deea;border-radius:1rem;background:#f7f8fb;padding:1rem;color:#111827}
 .calendar-nav{display:grid;height:2rem;width:2rem;place-items:center;border:1px solid #cbd5e1;border-radius:.6rem;background:#fff;color:#334155;font-size:1.3rem;line-height:1}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem}

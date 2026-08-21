@@ -1038,7 +1038,7 @@ export default function DreamJournal() {
               ) : null}
             </section>
 
-            <section className="space-y-4">
+            <section className="affiliate-section space-y-4">
               <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Helpful picks</p>
               <div className="grid gap-4">
                 <p className="text-sm leading-6 text-slate-400">Sponsored resources may earn us a commission at no extra cost to you.</p>
