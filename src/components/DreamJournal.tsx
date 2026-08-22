@@ -731,8 +731,45 @@ export default function DreamJournal() {
           <p className="mt-4 text-lg font-semibold text-slate-700">Track it in your personal Dream Vault.</p>
         </header>
 
+        <section className="mobile-vault-screen" aria-label="Dream Vault mobile home">
+          <div className="mobile-vault-topbar">
+            <div>
+              <p className="mobile-eyebrow">Private &amp; encrypted</p>
+              <h2>Dream Vault</h2>
+            </div>
+            <img src="/dream-brand-icon.png" alt="" width="42" height="42" />
+          </div>
+          <div className="mobile-welcome-card">
+            <div>
+              <p className="mobile-welcome-kicker">Good morning,</p>
+              <h3>dreamer</h3>
+              <p>{orderedVault.length ? `You've logged ${orderedVault.length} dream${orderedVault.length === 1 ? '' : 's'}` : 'Your private dream journal starts here'}</p>
+              <span>✦ {orderedVault.length > 1 ? '3 day streak' : 'Begin your streak'}</span>
+            </div>
+            <div className="mobile-streak">{Math.min(orderedVault.length, 9)}</div>
+          </div>
+          <button type="button" className="mobile-add-dream" onClick={() => document.getElementById('dream-entry-panel')?.scrollIntoView({ behavior: 'smooth' })}>
+            <span>＋</span> Add a dream
+          </button>
+          <label className="mobile-search"><span>⌕</span><input aria-label="Search your dreams" placeholder="Search your dreams" /></label>
+          <div className="mobile-filters" aria-label="Dream filters">
+            <button type="button" className="active">All</button><button type="button">Recent</button><button type="button">Lucid</button><button type="button">Nightmare</button>
+          </div>
+          <div className="mobile-dream-list">
+            {orderedVault.slice(0, 4).map((entry) => (
+              <button key={entry.id} type="button" className="mobile-dream-card" onClick={() => handleLoad(entry)}>
+                <img src="/dream-brand-icon.png" alt="" width="48" height="48" />
+                <span><small>{new Date(entry.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</small><strong>{entry.title || 'Untitled dream'}</strong><em>{entry.interpretation ? 'Interpreted' : 'Journal entry'}</em></span>
+                <b>›</b>
+              </button>
+            ))}
+            {!orderedVault.length ? <p className="mobile-empty">Your saved dreams will appear here.</p> : null}
+          </div>
+          <nav className="mobile-bottom-nav" aria-label="Mobile navigation"><a className="selected" href="#dream-vault">▣<span>Vault</span></a><a href="#premium">◷<span>Insights</span></a><a href="/dream-symbols">▤<span>Dictionary</span></a><a href="#dream-vault">◎<span>Profile</span></a></nav>
+        </section>
+
         <div className="mobile-app-grid grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="dream-entry-panel space-y-6">
+          <section id="dream-entry-panel" className="dream-entry-panel space-y-6">
             <form
               onSubmit={handleInterpret}
               className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
@@ -1184,6 +1221,15 @@ export default function DreamJournal() {
               );
             })}
           </div>
+        </section>
+
+        <section className="mobile-affiliate-section" aria-label="Recommended resources">
+          <p className="mobile-affiliate-label">Helpful picks</p>
+          {partnerLinks.slice(0, 2).map((item) => (
+            <a key={item.href} href={item.href} target="_blank" rel="sponsored noopener noreferrer" className="mobile-affiliate-card">
+              <span><small>Sponsored · {item.meta ?? item.label}</small><strong>{item.title}</strong></span><b>Open&nbsp; ›</b>
+            </a>
+          ))}
         </section>
 
         <section className="rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">

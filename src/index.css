@@ -55,6 +55,8 @@
 @media (min-width:640px){.happy-site #premium{margin-top:-2.5rem}}
 .happy-site .affiliate-section{margin-top:4rem}
 @media (min-width:1024px){.happy-site .affiliate-section{margin-top:7rem}}
+.mobile-vault-screen{display:none}
+.mobile-affiliate-section{display:none}
 .dream-calendar{margin-top:1rem;border:1px solid #d7deea;border-radius:1rem;background:#f7f8fb;padding:1rem;color:#111827}
 .calendar-nav{display:grid;height:2rem;width:2rem;place-items:center;border:1px solid #cbd5e1;border-radius:.6rem;background:#fff;color:#334155;font-size:1.3rem;line-height:1}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem}
@@ -84,6 +86,34 @@
   .happy-site header h1 span:nth-child(2){font-size:1.15rem!important}
   .happy-site header h1 span:nth-child(3){font-size:.65rem!important}
   .happy-site .mobile-app-grid{display:flex!important;flex-direction:column!important;gap:1rem!important}
+  .happy-site>section>header,.happy-site>section>.mobile-app-grid{display:none!important}
+  .happy-site .mobile-vault-screen{display:block!important}
+  .happy-site #premium{margin-top:-.35rem!important;padding:1rem!important;border-radius:1.35rem!important}
+  .happy-site #premium h2{font-size:1.55rem!important;line-height:1.1}
+  .happy-site #premium>p{font-size:.82rem;line-height:1.45}
+  .happy-site #premium .grid{grid-template-columns:1fr!important;gap:.65rem!important}
+  .happy-site #premium .pricing-card{padding:1rem!important}
+  .happy-site #premium .pricing-card:not(.pricing-card-light){display:none}
+  .happy-site #premium .pricing-card-light button{min-height:42px!important}
+  .mobile-vault-screen{position:relative;margin:0 -.15rem;padding-bottom:4.75rem}
+  .mobile-vault-topbar{display:flex;align-items:center;justify-content:space-between;padding:.25rem .15rem .85rem}
+  .mobile-vault-topbar h2{margin:.2rem 0 0;font-size:1.65rem;letter-spacing:-.04em;color:#f8fbff}
+  .mobile-vault-topbar img{border:1px solid rgba(120,115,255,.45);border-radius:999px;box-shadow:0 0 20px rgba(82,197,255,.2)}
+  .mobile-eyebrow{margin:0;color:#21d5d2;font-size:.68rem;font-weight:700;letter-spacing:.04em}
+  .mobile-welcome-card{display:flex;align-items:flex-end;justify-content:space-between;min-height:9.25rem;padding:1.15rem;border:1px solid rgba(93,128,238,.7);border-radius:1.35rem;background:radial-gradient(circle at 75% 20%,rgba(85,107,255,.78),transparent 42%),linear-gradient(135deg,#172a83,#7218a8 120%);box-shadow:0 14px 35px rgba(0,0,0,.22)}
+  .mobile-welcome-kicker{margin:0;font-size:1.35rem;font-weight:700;color:#fff}
+  .mobile-welcome-card h3{margin:.05rem 0 .8rem;font-size:1.45rem;color:#fff}
+  .mobile-welcome-card p{margin:0;color:#eef3ff;font-size:.8rem}.mobile-welcome-card span{display:block;margin-top:.7rem;color:#ff75cd;font-size:.75rem;font-weight:700}
+  .mobile-streak{display:grid;height:3.5rem;width:3.5rem;place-items:center;border:2px solid #f158e5;border-radius:999px;color:#fff;font-size:1.35rem;font-weight:800;box-shadow:0 0 24px rgba(244,74,221,.65)}
+  .mobile-add-dream{display:flex!important;align-items:center;justify-content:center;width:100%;margin:1rem 0 .7rem;padding:.8rem;border:0;border-radius:999px;background:linear-gradient(100deg,#19c9e5,#7b4cff 58%,#ef31be);color:#fff;font-size:1rem;font-weight:800;box-shadow:0 8px 24px rgba(80,96,255,.28)}
+  .mobile-search{display:flex;align-items:center;gap:.5rem;padding:.7rem .9rem;border:1px solid rgba(103,129,216,.5);border-radius:999px;background:rgba(5,12,45,.72)}
+  .mobile-search span{color:#aebbe1;font-size:1.2rem}.mobile-search input{width:100%;border:0!important;background:transparent!important;color:#fff!important;outline:0;font-size:.82rem}.mobile-search input::placeholder{color:#aebbe1!important}
+  .mobile-filters{display:flex;gap:.45rem;overflow-x:auto;padding:.7rem 0 .85rem;scrollbar-width:none}.mobile-filters button{min-height:0!important;padding:.45rem .85rem;border:1px solid rgba(110,136,220,.3);border-radius:999px;background:rgba(5,12,45,.72);color:#fff;font-size:.72rem;white-space:nowrap}.mobile-filters button.active{border-color:#23cce9;background:#13bddd;color:#fff}
+  .mobile-dream-list{display:grid;gap:.55rem}.mobile-dream-card{display:flex!important;align-items:center;gap:.7rem;width:100%;padding:.7rem;border:1px solid rgba(94,122,211,.42);border-radius:1rem;background:rgba(5,14,49,.82);color:#fff;text-align:left}.mobile-dream-card img{border-radius:999px}.mobile-dream-card span{display:grid;min-width:0;flex:1}.mobile-dream-card small{color:#9eacd0;font-size:.63rem}.mobile-dream-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.84rem}.mobile-dream-card em{width:max-content;margin-top:.25rem;padding:.12rem .45rem;border-radius:999px;background:rgba(125,82,251,.35);color:#d9d4ff;font-size:.58rem;font-style:normal}.mobile-dream-card b{color:#9eacd0;font-size:1.5rem;font-weight:400}.mobile-empty{padding:1rem;color:#aebbe1;text-align:center;font-size:.8rem}
+  .mobile-bottom-nav{position:fixed;z-index:10;right:1rem;bottom:1rem;left:1rem;display:grid;grid-template-columns:repeat(4,1fr);padding:.55rem .35rem;border:1px solid rgba(100,125,220,.42);border-radius:1.25rem;background:rgba(2,8,30,.94);box-shadow:0 10px 30px rgba(0,0,0,.35);backdrop-filter:blur(14px)}.mobile-bottom-nav a{display:grid;place-items:center;gap:.18rem;color:#aebbe1;font-size:1rem;text-decoration:none}.mobile-bottom-nav a span{font-size:.58rem}.mobile-bottom-nav a.selected{color:#1bd9df}
+  .happy-site .mobile-affiliate-section{display:block!important;margin-top:0!important;padding:0 .1rem 5rem}
+  .mobile-affiliate-label{margin:0 0 .55rem;color:#aebbe1;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase}
+  .mobile-affiliate-card{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin:.5rem 0;padding:.85rem 1rem;border:1px solid rgba(101,126,211,.34);border-radius:1rem;background:rgba(5,14,49,.72);color:#fff;text-decoration:none}.mobile-affiliate-card span{display:grid}.mobile-affiliate-card small{color:#8fa1ca;font-size:.6rem}.mobile-affiliate-card strong{font-size:.82rem}.mobile-affiliate-card b{color:#65d8ef;font-size:.72rem;white-space:nowrap}
   .happy-site .dream-vault-panel{order:-1}
   .happy-site .dream-vault-panel>section:first-child{background:rgba(3,8,30,.9)!important;border-color:rgba(91,119,203,.34)!important;box-shadow:0 18px 45px rgba(0,0,0,.28)!important}
   .happy-site .dream-vault-panel .dream-calendar{border-color:rgba(91,119,203,.5);background:#f7f8fb}
