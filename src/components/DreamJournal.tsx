@@ -703,7 +703,7 @@ export default function DreamJournal() {
         <nav className="flex flex-wrap items-center justify-between gap-4" aria-label="Primary navigation">
           <a href="/" className="flex items-center gap-2.5 font-display text-sm font-bold uppercase tracking-[0.22em] text-slate-900">
             <img src="/dream-brand-icon.png" alt="" width="36" height="36" className="brand-logo h-9 w-9 rounded-xl" />
-            <span>Dream Interpretation Dictionary</span>
+            <span>Dream Vault</span>
           </a>
           <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-700">
             <a href="#how-it-works">How it works</a>
@@ -731,8 +731,8 @@ export default function DreamJournal() {
           <p className="mt-4 text-lg font-semibold text-slate-700">Track it in your personal Dream Vault.</p>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="space-y-6">
+        <div className="mobile-app-grid grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="dream-entry-panel space-y-6">
             <form
               onSubmit={handleInterpret}
               className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
@@ -910,7 +910,7 @@ export default function DreamJournal() {
             </div>
           </section>
 
-          <aside className="space-y-6">
+          <aside className="dream-vault-panel space-y-6">
             <section id="dream-vault" className="rounded-3xl border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/20 backdrop-blur">
               <div className="flex items-start justify-between gap-4">
                 <div>

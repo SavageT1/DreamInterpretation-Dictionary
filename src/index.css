@@ -67,6 +67,7 @@
 .shooting-star-emitter,.shooting-star-emitter-2{position:absolute;width:2px;height:2px;border-radius:50%;pointer-events:none;animation:shooting-star 15s ease-in-out infinite}.shooting-star-emitter{top:10%;right:15%;background:linear-gradient(-45deg,#fff,rgba(190,55,255,0));filter:drop-shadow(0 0 6px rgba(190,55,255,.85));animation-delay:4s}.shooting-star-emitter-2{top:25%;right:-5%;background:linear-gradient(-45deg,#fff,rgba(32,215,255,0));filter:drop-shadow(0 0 6px rgba(32,215,255,.85));animation-duration:18s;animation-delay:10s}
 
 @media (max-width:640px){
+  body{background:#020617}
   .happy-site>section{padding:1rem!important;gap:1.25rem!important}
   .happy-site nav{align-items:flex-start!important;gap:.75rem!important}
   .happy-site nav>a{width:100%;font-size:.72rem!important;letter-spacing:.13em!important}
@@ -78,6 +79,16 @@
   .happy-site header h1 span:nth-child(3){font-size:.75rem!important;letter-spacing:.32em!important}
   .happy-site header p{font-size:1rem!important;line-height:1.45!important;margin-top:1rem!important}
   .happy-site header p span[class*="text-3xl"]{font-size:1.65rem!important}
+  .happy-site header h1{margin-top:.25rem!important}
+  .happy-site header h1 span:first-child{font-size:3.7rem!important}
+  .happy-site header h1 span:nth-child(2){font-size:1.15rem!important}
+  .happy-site header h1 span:nth-child(3){font-size:.65rem!important}
+  .happy-site .mobile-app-grid{display:flex!important;flex-direction:column!important;gap:1rem!important}
+  .happy-site .dream-vault-panel{order:-1}
+  .happy-site .dream-vault-panel>section:first-child{background:rgba(3,8,30,.9)!important;border-color:rgba(91,119,203,.34)!important;box-shadow:0 18px 45px rgba(0,0,0,.28)!important}
+  .happy-site .dream-vault-panel .dream-calendar{border-color:rgba(91,119,203,.5);background:#f7f8fb}
+  .happy-site .dream-entry-panel form{background:rgba(3,8,30,.9)!important;border-color:rgba(91,119,203,.34)!important}
+  .happy-site .dream-entry-panel .reader-field{min-height:11rem!important;background:#f7f8fb!important;color:#111827!important}
   .happy-site form,.happy-site article,.happy-site aside{border-radius:1.25rem!important;padding:1rem!important}
   .happy-site textarea{min-height:150px}
   .happy-site button{min-height:44px}
