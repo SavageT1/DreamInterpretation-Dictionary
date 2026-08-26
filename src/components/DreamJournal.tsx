@@ -233,6 +233,7 @@ function useSpeechToText(onTranscript: (text: string) => void) {
 
 export default function DreamJournal() {
   const [dream, setDream] = useState('');
+  const [dreamDate, setDreamDate] = useState('');
   const [dreamBookNotes, setDreamBookNotes] = useState('');
   const [title, setTitle] = useState('');
   const [interpretation, setInterpretation] = useState('');
@@ -244,6 +245,8 @@ export default function DreamJournal() {
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<PlanId | null>(null);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterStatus, setNewsletterStatus] = useState('');
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [member, setMember] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -476,11 +479,22 @@ export default function DreamJournal() {
     }
   }
 
+  function handleNewsletterSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newsletterEmail.trim()) return;
+    window.localStorage.setItem('dream-dictionary:newsletter-email', newsletterEmail.trim());
+    setNewsletterStatus('You’re on the list for Dream Vault updates.');
+  }
+
   async function handleInterpret(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const cleanDream = dream.trim();
     if (!cleanDream) return;
+    if (!dreamDate) {
+      setInterpretationError('Please add the date of this dream before requesting an interpretation.');
+      return;
+    }
 
     if (!isPremium && freeInterpretationsLeft <= 0) {
       setShowPaywall(true);
@@ -701,41 +715,22 @@ export default function DreamJournal() {
               aria-busy={isInterpreting}
             >
               <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-slate-200">Describe the dream</span>
-                <div className="relative">
-                  <textarea
-                    value={dream}
-                    onChange={(event) => handleDreamChange(event.target.value)}
-                    rows={8}
-                    placeholder="I was walking through a house I didn't recognize, but it felt familiar..."
-                    className="dream-entry-field w-full rounded-3xl border border-white/80 bg-white px-4 py-4 pr-14 text-sm leading-6 text-slate-900 shadow-lg shadow-black/20 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400/60"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => speech.toggle(dream)}
-                    disabled={!speech.isSupported}
-                    aria-label="Speak your dream"
-                    title={speech.isSupported ? 'Speak your dream' : "Voice input isn't supported in this browser"}
-                    className={`absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-slate-950 shadow-md shadow-black/20 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-30 ${
-                      speech.isListening ? 'animate-pulse' : ''
-                    }`}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="9" y="2" width="6" height="12" rx="3" />
-                      <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
-                      <line x1="12" y1="19" x2="12" y2="22" />
-                    </svg>
-                  </button>
-                </div>
-                {speech.isListening ? (
-                  <span className="flex items-center gap-2 text-xs text-fuchsia-200">
-                    <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-fuchsia-300" />
-                    Listening...
-                  </span>
-                ) : null}
+                <span className="text-sm font-medium text-slate-200">Describe your dream in as much detail as you can remember.</span>
+                <span className="mt-2 text-sm font-medium text-slate-200">Date of dream</span>
+                <input type="date" value={dreamDate} onChange={(event) => setDreamDate(event.target.value)} required aria-label="Date of dream" className="rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-cyan-300 focus:ring-4 focus:ring-cyan-300/20" />
+                <button type="button" onClick={() => speech.toggle(dream)} disabled={!speech.isSupported} className={`voice-input-button ${speech.isListening ? 'is-listening' : ''}`} aria-pressed={speech.isListening}>
+                  <span className="voice-input-icon" aria-hidden="true">{speech.isListening ? '■' : '◉'}</span> {speech.isListening ? 'Listening… tap to stop' : 'Talk to text'}
+                </button>
+                <textarea
+                  value={dream}
+                  onChange={(event) => handleDreamChange(event.target.value)}
+                  rows={8}
+                  placeholder="I had a dream about..."
+                  className="dream-entry-field w-full rounded-3xl border border-white/80 bg-white px-4 py-4 text-sm leading-6 text-slate-900 shadow-lg shadow-black/20 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400/60"
+                />
                 <span className="text-xs text-slate-500">Include what happened, who was there, and how it felt.</span>
                 <span className="text-xs text-slate-500">
-                  Your dream text is sent securely to OpenAI for interpretation. Readings are reflective, not medical advice or predictions.
+                  Our Dream AI will securely read and interpret your dream, then break down the possible meaning for you.
                 </span>
               </label>
 
@@ -745,7 +740,7 @@ export default function DreamJournal() {
                   disabled={isInterpreting || !hasDreamText}
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isInterpreting ? 'Interpreting...' : hasDreamText ? 'Interpret dream' : 'Enter a dream first'}
+                  {isInterpreting ? 'Interpreting...' : 'GET DREAM RESULTS'}
                 </button>
                 <span className="text-xs text-slate-400">
                   {isPremium ? 'Premium: unlimited readings' : `${freeInterpretationsLeft} free interpretation${freeInterpretationsLeft === 1 ? '' : 's'} left`}
@@ -765,9 +760,9 @@ export default function DreamJournal() {
 
             <div className="dream-reading-grid grid gap-6 md:grid-cols-2">
               <article className="dream-reading-card rounded-3xl border border-white/10 bg-white/5 p-5" aria-live="polite">
-                <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Live reading</p>
+                <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Dream results</p>
                 <h2 className="mt-3 font-display text-2xl text-white">
-                  {isInterpreting ? 'Reading your dream...' : liveTitle || 'Your reading will appear here'}
+                  {isInterpreting ? 'Reading your dream...' : liveTitle || 'Your dream interpretation will show here'}
                 </h2>
                 {isInterpreting ? (
                   <div className="mt-4 flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-cyan-200">
@@ -874,17 +869,22 @@ export default function DreamJournal() {
 
           <aside className="dream-vault-column space-y-6">
             <section id="dream-vault" className="dream-vault-card rounded-3xl border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/20 backdrop-blur">
+              <div className="vault-access-badge mb-5 flex items-center gap-3 rounded-2xl border border-white/20 bg-white/5 px-4 py-3">
+                <span className="vault-access-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 12.5h18v13H7zM10 12.5V9a6 6 0 0 1 12 0v3.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/><path d="M16 17v4m-2-2h4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg></span>
+                <span className="text-sm font-semibold tracking-wide text-white">User Private Vault Access</span>
+              </div>
+              <button type="button" onClick={member ? handleSignOut : handleSignIn} disabled={isSigningIn} className="vault-login-button mb-5 w-full rounded-full border border-white/25 px-4 py-3 text-sm font-bold text-white transition disabled:opacity-60">{member ? 'Sign out of your private vault' : isSigningIn ? 'Connecting…' : 'Sign in to your private vault'}</button>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Dream Vault</p>
-                  <h2 className="mt-2 font-display text-2xl text-white">Your saved dreams</h2>
+                  <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Saved dreams</p>
+                  <h2 className="mt-2 font-display text-2xl text-white">Your vault</h2>
                 </div>
                 <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
                   {member ? (isCloudSyncing ? 'Syncing...' : 'Cloud synced') : `${freeSlotsLeft} free saves remaining`}
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-gradient-to-r from-cyan-400/10 to-fuchsia-500/10 p-4">
+              <div className="hidden">
                 {member ? (
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -910,10 +910,7 @@ export default function DreamJournal() {
               <div className="mt-4 space-y-3">
                 {orderedVault.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-white/15 px-4 py-6 text-center">
-                    <p className="text-sm text-slate-300">Your Dream Vault is empty.</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Interpret your first dream above and save it here. Patterns start to appear once you've saved a few.
-                    </p>
+                    <p className="text-sm text-slate-300">No vault entries yet. Save your first dream to begin tracking patterns.</p>
                   </div>
                 ) : (
                   orderedVault.map((entry) => (
@@ -1074,24 +1071,23 @@ export default function DreamJournal() {
         <section id="how-it-works" className="dream-steps grid gap-6 lg:grid-cols-3">
           <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10">
             <p className="step-label text-xs font-bold uppercase tracking-[0.25em] text-teal-700"><span>Step</span> <strong>1</strong></p>
-            <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Describe it</h2>
-            <p className="mt-3 leading-7 text-slate-700">Write what happened, who was there, how it felt — or just speak it with the mic button. One field, nothing else competing for attention.</p>
+            <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Describe what you remember</h2>
+            <p className="mt-3 leading-7 text-slate-700">Write the setting, people, actions, objects, and emotions that stood out. Personal context matters more than finding one universal definition.</p>
           </article>
           <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10">
             <p className="step-label text-xs font-bold uppercase tracking-[0.25em] text-teal-700"><span>Step</span> <strong>2</strong></p>
-            <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">See your Dream Meaning</h2>
+            <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Explore possible meanings</h2>
             <p className="mt-3 leading-7 text-slate-700">Your reading connects common symbolic themes with the emotional tone of your dream. It offers possibilities for reflection—not predictions or diagnoses.</p>
           </article>
           <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10">
             <p className="step-label text-xs font-bold uppercase tracking-[0.25em] text-teal-700"><span>Step</span> <strong>3</strong></p>
-            <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Add it to your Dream Vault</h2>
-            <p className="mt-3 leading-7 text-slate-700">Every saved dream builds your personal archive — and over time, your Dream Vault surfaces the symbols and themes that keep coming back.</p>
+            <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Save only if you want</h2>
+            <p className="mt-3 leading-7 text-slate-700">After the reading, add an optional title or note and keep it in your private Dream Vault. Sign in to keep saved dreams available across devices.</p>
           </article>
         </section>
 
-        <section id="premium" className="dream-pricing-section rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-700">Premium</p>
-          <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold text-slate-950">Start for $3.99/week — upgrade to save more</h2>
+        <section id="premium" className="dream-pricing-section mt-8" aria-label="Pricing options">
+          <div className="mb-5 text-center"><p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-300">Keep track of your dreams</p><h2 className="mt-2 font-display text-3xl font-bold text-white">Start understanding your dreams</h2></div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {(Object.keys(PLAN_DETAILS) as PlanId[]).map((planId) => {
@@ -1117,11 +1113,7 @@ export default function DreamJournal() {
                     {plan.price} <span className="text-sm font-normal text-slate-500">{plan.cadence}</span>
                   </p>
                   {plan.save ? <p className="mt-1 text-xs font-semibold text-teal-600">{plan.save}</p> : null}
-                  <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                    <li>Unlimited AI interpretations</li>
-                    <li>Unlimited saved dreams</li>
-                    <li>Manage or cancel anytime via Stripe</li>
-                  </ul>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">Unlimited interpretations, private Dream Vault saves, and recurring pattern insights.</p>
                   <button
                     type="button"
                     onClick={() => openBillingRoute(isPremium ? '/api/portal' : '/api/checkout', planId)}
@@ -1140,10 +1132,14 @@ export default function DreamJournal() {
           </div>
         </section>
 
+        <section className="dream-newsletter rounded-[2rem] border border-cyan-300/25 bg-gradient-to-r from-cyan-500/10 via-indigo-500/15 to-fuchsia-500/15 p-6 shadow-2xl sm:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.28em] text-cyan-300">Stay connected</p><h2 className="mt-2 font-display text-2xl font-bold text-white">Get the next dream insight</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Join the Dream Vault list for new dream prompts, lucid-dreaming tips, feature announcements, and simple ways to understand your nighttime patterns.</p></div><form onSubmit={handleNewsletterSubmit} className="flex w-full max-w-xl flex-col gap-3 sm:flex-row"><label className="sr-only" htmlFor="newsletter-email">Email address</label><input id="newsletter-email" type="email" required value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} placeholder="Your email address" className="newsletter-input min-w-0 flex-1 rounded-full border border-white/20 bg-white px-5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-cyan-300" /><button type="submit" className="newsletter-button rounded-full bg-gradient-to-r from-cyan-300 to-fuchsia-400 px-6 py-3 text-sm font-bold text-slate-950 transition hover:scale-[1.02]">GET DREAM UPDATES</button></form></div>{newsletterStatus ? <p className="mt-4 text-sm font-semibold text-cyan-200">{newsletterStatus}</p> : null}
+        </section>
+
         <section className="rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-700">A better way to use a dream dictionary</p>
           <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold text-slate-950">Symbols are starting points, not fixed answers.</h2>
-          <div className="mt-5 grid gap-5 text-base leading-7 text-slate-700 md:grid-cols-2"><p>Water might feel peaceful to one person and threatening to another. A house could represent safety, identity, family history, or simply a recent memory. A useful interpretation considers what happened, how you felt, and what the symbol means in your own life.</p><p>Reviewing dreams over time can reveal repeated places, emotions, and choices. Your Dream Vault helps you compare those patterns without claiming that dreams predict the future. Treat every reading as an invitation to reflect and keep what genuinely fits.</p></div>
+          <div className="mt-5 grid gap-5 text-base leading-7 text-slate-700 md:grid-cols-2"><p>Water might feel peaceful to one person and threatening to another. A house could represent safety, identity, family history, or simply a recent memory. A useful interpretation considers what happened, how you felt, and what the symbol means in your own life.</p><p>Reviewing dreams over time can reveal repeated places, emotions, and choices. Your journal helps you compare those patterns without claiming that dreams predict the future. Treat every reading as an invitation to reflect and keep what genuinely fits.</p></div>
         </section>
 
         <section className="bottom-affiliate-section space-y-4" aria-labelledby="bottom-affiliate-title">
