@@ -662,40 +662,42 @@ export default function DreamJournal() {
       </div>
 
       <section className="relative mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
-        <nav className="flex flex-wrap items-center justify-between gap-4" aria-label="Primary navigation">
-          <a href="/" className="flex items-center gap-2.5 font-display text-sm font-bold uppercase tracking-[0.22em] text-slate-900">
-            <img src="/dream-brand-icon.png" alt="" width="36" height="36" className="brand-logo h-9 w-9 rounded-xl" />
-            <span>Dream Interpretation Dictionary</span>
-          </a>
-          <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-700">
+        <nav className="site-navigation" aria-label="Primary navigation">
+          <a href="/" className="site-brand-name font-display text-sm font-bold uppercase tracking-[0.22em] text-white">Dream Interpretation Dictionary</a>
+          <div className="site-navigation-links">
             <a href="#how-it-works">How it works</a>
-            <a href="#premium">Premium</a>
-            <a href="#dream-vault">Dream Vault</a>
+            <a href="/blog">Blog</a>
+            <a href="/dream-terms">Dream terms</a>
             <a href="/about">About</a>
-            <a href="/privacy">Privacy</a>
-            <a href="/contact">Contact</a>
+            <a href="#dream-vault" className="private-vault-login">
+              <span className="vault-login-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 10h14v10H5zM8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M12 14v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg></span>
+              <span>Private Dream Vault</span>
+              <span className="vault-login-action">{member ? 'Open' : 'Log in'}</span>
+            </a>
           </div>
         </nav>
 
-        <header className="max-w-4xl py-4">
-          <h1 className="font-display uppercase text-slate-950">
-            <span className="brand-gradient-text block text-7xl font-black leading-[0.82] tracking-[-0.07em] sm:text-8xl lg:text-[9rem]">Dream</span>
-            <span className="mt-4 block text-2xl font-bold tracking-[0.16em] text-teal-700 sm:text-4xl">Interpretation</span>
-            <span className="mt-2 block text-sm font-bold tracking-[0.5em] text-violet-700 sm:text-base">Dictionary</span>
-          </h1>
-          <p className="mt-7 max-w-3xl text-lg font-semibold leading-tight text-slate-800 sm:text-2xl">
-            Understand the <span className="mx-1 inline-block text-3xl font-black uppercase text-violet-400 sm:text-5xl">meaning</span>
-            <span> of what you&apos;re </span>
-            <span className="mx-1 inline-block text-3xl font-black uppercase text-teal-300 sm:text-5xl">dreaming</span>.
-          </p>
-          <p className="mt-4 text-lg font-semibold text-slate-700">Track it in your personal Dream Vault.</p>
-        </header>
+        <div className="dream-hero-grid">
+          <header className="max-w-4xl py-4">
+            <p className="mb-5 text-sm font-bold uppercase tracking-[0.3em] text-cyan-300">Save tonight&apos;s</p>
+            <h1 className="font-display uppercase text-white">
+              <span className="dream-hero-title block text-7xl font-black leading-[0.82] tracking-[-0.07em] sm:text-8xl lg:text-[9rem]">Dream</span>
+              <span className="mt-4 block text-2xl font-bold tracking-[0.16em] text-cyan-200 sm:text-4xl">In Your</span>
+              <span className="mt-2 block text-sm font-bold tracking-[0.5em] text-fuchsia-300 sm:text-base">Private Dream Vault</span>
+            </h1>
+            <p className="mt-7 max-w-3xl text-lg font-semibold leading-tight text-slate-200 sm:text-2xl">
+              Describe a dream, discover possible meanings, and save recurring symbols and patterns in your private <span className="text-fuchsia-300">Dream Vault</span>.
+            </p>
+            <p className="hero-start mt-4 text-lg font-bold uppercase tracking-[0.22em] text-cyan-300">Start here.</p>
+          </header>
+          <div className="dream-orbit" aria-label="Dream Interpretation Dictionary logo"><div className="dream-orbit-glow" /><div className="dream-orbit-ring" /><img className="dream-orbit-logo" src="/dream-brand-icon.png" alt="Dream Interpretation Dictionary" /><span className="dream-orbit-star">✦</span></div>
+        </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="space-y-6">
+        <div className="dream-main-grid grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="dream-entry-column space-y-6">
             <form
               onSubmit={handleInterpret}
-              className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
+              className="dream-entry-card rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
               aria-busy={isInterpreting}
             >
               <label className="flex flex-col gap-2">
@@ -706,7 +708,7 @@ export default function DreamJournal() {
                     onChange={(event) => handleDreamChange(event.target.value)}
                     rows={8}
                     placeholder="I was walking through a house I didn't recognize, but it felt familiar..."
-                    className="w-full rounded-3xl border border-white/40 bg-white px-4 py-4 pr-14 text-sm leading-6 text-slate-900 shadow-lg shadow-black/20 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400/60"
+                    className="dream-entry-field w-full rounded-3xl border border-white/80 bg-white px-4 py-4 pr-14 text-sm leading-6 text-slate-900 shadow-lg shadow-black/20 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400/60"
                   />
                   <button
                     type="button"
@@ -761,8 +763,8 @@ export default function DreamJournal() {
               </p>
             </form>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <article className="rounded-3xl border border-white/10 bg-white/5 p-5" aria-live="polite">
+            <div className="dream-reading-grid grid gap-6 md:grid-cols-2">
+              <article className="dream-reading-card rounded-3xl border border-white/10 bg-white/5 p-5" aria-live="polite">
                 <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Live reading</p>
                 <h2 className="mt-3 font-display text-2xl text-white">
                   {isInterpreting ? 'Reading your dream...' : liveTitle || 'Your reading will appear here'}
@@ -870,8 +872,8 @@ export default function DreamJournal() {
             </div>
           </section>
 
-          <aside className="space-y-6">
-            <section id="dream-vault" className="rounded-3xl border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/20 backdrop-blur">
+          <aside className="dream-vault-column space-y-6">
+            <section id="dream-vault" className="dream-vault-card rounded-3xl border border-white/10 bg-slate-950/75 p-5 shadow-2xl shadow-black/20 backdrop-blur">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Dream Vault</p>
@@ -996,7 +998,7 @@ export default function DreamJournal() {
               ) : null}
             </section>
 
-            <section className="space-y-4">
+            <section className="dream-affiliate-section space-y-4">
               <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Helpful picks</p>
               <div className="grid gap-4">
                 <p className="text-sm leading-6 text-slate-400">Sponsored resources may earn us a commission at no extra cost to you.</p>
@@ -1069,43 +1071,43 @@ export default function DreamJournal() {
           </aside>
         </div>
 
-        <section id="how-it-works" className="grid gap-6 lg:grid-cols-3">
+        <section id="how-it-works" className="dream-steps grid gap-6 lg:grid-cols-3">
           <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-700">Step one</p>
+            <p className="step-label text-xs font-bold uppercase tracking-[0.25em] text-teal-700"><span>Step</span> <strong>1</strong></p>
             <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Describe it</h2>
             <p className="mt-3 leading-7 text-slate-700">Write what happened, who was there, how it felt — or just speak it with the mic button. One field, nothing else competing for attention.</p>
           </article>
           <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-700">Step two</p>
+            <p className="step-label text-xs font-bold uppercase tracking-[0.25em] text-teal-700"><span>Step</span> <strong>2</strong></p>
             <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">See your Dream Meaning</h2>
             <p className="mt-3 leading-7 text-slate-700">Your reading connects common symbolic themes with the emotional tone of your dream. It offers possibilities for reflection—not predictions or diagnoses.</p>
           </article>
           <article className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-700">Step three</p>
+            <p className="step-label text-xs font-bold uppercase tracking-[0.25em] text-teal-700"><span>Step</span> <strong>3</strong></p>
             <h2 className="mt-3 font-display text-2xl font-bold text-slate-950">Add it to your Dream Vault</h2>
             <p className="mt-3 leading-7 text-slate-700">Every saved dream builds your personal archive — and over time, your Dream Vault surfaces the symbols and themes that keep coming back.</p>
           </article>
         </section>
 
-        <section id="premium" className="rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">
+        <section id="premium" className="dream-pricing-section rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-700">Premium</p>
           <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold text-slate-950">Start for $3.99/week — upgrade to save more</h2>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {(Object.keys(PLAN_DETAILS) as PlanId[]).map((planId) => {
               const plan = PLAN_DETAILS[planId];
-              const isMonthly = planId === 'monthly';
+              const isFeatured = planId === 'weekly';
               return (
                 <div
                   key={planId}
                   className={`relative rounded-3xl border p-6 ${
-                    isMonthly
+                    isFeatured
                       ? 'border-fuchsia-400/60 bg-gradient-to-br from-fuchsia-500/10 to-cyan-400/10'
                       : 'border-slate-900/10 bg-white'
                   }`}
                 >
-                  {isMonthly ? (
-                    <span className="absolute -top-3 left-6 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-950">
+                  {isFeatured ? (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-950 shadow-lg shadow-fuchsia-500/30">
                       Most popular
                     </span>
                   ) : null}
@@ -1124,11 +1126,7 @@ export default function DreamJournal() {
                     type="button"
                     onClick={() => openBillingRoute(isPremium ? '/api/portal' : '/api/checkout', planId)}
                     disabled={isStartingCheckout || (!isPremium && !paymentsEnabled)}
-                    className={`mt-5 w-full rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-60 ${
-                      isMonthly
-                        ? 'bg-slate-950 text-white hover:scale-[1.01]'
-                        : 'border border-slate-900/15 text-slate-900 hover:bg-slate-900/5'
-                    }`}
+                    className="plan-cta mt-5 w-full rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60"
                   >
                     {isStartingCheckout && checkoutPlan === planId
                       ? 'Opening secure billing...'
@@ -1146,6 +1144,12 @@ export default function DreamJournal() {
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-700">A better way to use a dream dictionary</p>
           <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold text-slate-950">Symbols are starting points, not fixed answers.</h2>
           <div className="mt-5 grid gap-5 text-base leading-7 text-slate-700 md:grid-cols-2"><p>Water might feel peaceful to one person and threatening to another. A house could represent safety, identity, family history, or simply a recent memory. A useful interpretation considers what happened, how you felt, and what the symbol means in your own life.</p><p>Reviewing dreams over time can reveal repeated places, emotions, and choices. Your Dream Vault helps you compare those patterns without claiming that dreams predict the future. Treat every reading as an invitation to reflect and keep what genuinely fits.</p></div>
+        </section>
+
+        <section className="bottom-affiliate-section space-y-4" aria-labelledby="bottom-affiliate-title">
+          <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="bottom-affiliate-title" className="font-display text-2xl font-bold uppercase tracking-[0.12em] text-cyan-200">✦ Featured sleep support suggested for you</h2><span className="rounded-full bg-gradient-to-r from-cyan-300 to-fuchsia-400 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-950">Featured sale</span></div>
+          <p className="text-sm leading-6 text-slate-400">Sponsored resources may earn us a commission at no extra cost to you.</p>
+          <div className="bottom-affiliate-list">{partnerLinks.slice(0, 3).map((item) => <a key={item.href} href={item.href} target="_blank" rel="sponsored noopener noreferrer" onClick={() => trackEvent('affiliate_click', { partner: item.label, offer: item.title })} className="bottom-affiliate-card"><span className={`bottom-affiliate-thumb bg-gradient-to-br ${item.gradient}`}>{item.imageSrc ? <img src={item.imageSrc} alt="" loading="lazy" /> : item.thumbnail}</span><span className="min-w-0"><span className="block text-[10px] uppercase tracking-[0.2em] text-cyan-200">{item.label}</span><strong className="mt-1 block truncate text-base text-white">{item.title}</strong></span><span className="bottom-affiliate-action">{item.buttonLabel} →</span></a>)}</div>
         </section>
 
         <footer className="flex flex-col gap-4 border-t border-slate-900/10 py-8 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"><p>© 2026 Dream Interpretation Dictionary. For reflection and entertainment—not professional advice.</p><nav className="flex flex-wrap gap-4" aria-label="Footer navigation"><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/editorial-policy">Editorial policy</a><a href="/contact">Contact</a></nav></footer>
