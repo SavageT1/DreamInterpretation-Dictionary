@@ -12,6 +12,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/lucid-dreaming", "destination": "/lucid-dreaming.html" },
+    { "source": "/dream-symbols", "destination": "/dream-symbols.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

@@ -38,27 +38,35 @@
 .brand-logo{filter:drop-shadow(0 0 24px rgba(26,173,255,.22)) drop-shadow(0 0 28px rgba(189,48,255,.18))}
 .brand-gradient-text{background:linear-gradient(90deg,#20d7ff 0%,#478cff 40%,#8f45ff 68%,#f03cff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 
-.shooting-star-emitter,.shooting-star-emitter-2{position:absolute;width:2px;height:2px;border-radius:50%;pointer-events:none;animation:shooting-star 15s ease-in-out infinite}.shooting-star-emitter{top:10%;right:15%;background:linear-gradient(-45deg,#fff,rgba(190,55,255,0));filter:drop-shadow(0 0 6px rgba(190,55,255,.85));animation-delay:4s}.shooting-star-emitter-2{top:25%;right:-5%;background:linear-gradient(-45deg,#fff,rgba(32,215,255,0));filter:drop-shadow(0 0 6px rgba(32,215,255,.85));animation-duration:18s;animation-delay:10s}
+/* Dream Vault: calm reading and writing surfaces for night use. */
+.happy-site .reader-field,.happy-site .ai-reading{background:#f7f8fb;color:#111827;border-color:#d7deea}
+.happy-site .reader-field::placeholder{color:#68758a}
+.happy-site .ai-reading h2,.happy-site .ai-reading p,.happy-site .ai-reading label,.happy-site .ai-reading span{color:#111827}
+.happy-site .ai-reading .text-slate-400,.happy-site .ai-reading .text-slate-500{color:#526075}
+.happy-site .ai-reading .text-cyan-100,.happy-site .ai-reading .text-cyan-200{color:#125d73}
+.happy-site .pricing-card-light .text-slate-950{color:#020617!important}
+.happy-site .pricing-card-light .text-slate-900{color:#0f172a!important}
+.happy-site .pricing-card-light .text-slate-700{color:#334155!important}
+.happy-site .pricing-card-light .text-slate-600{color:#475569!important}
+.happy-site .pricing-card-light .text-slate-500{color:#64748b!important}
+.happy-site .pricing-card-light .text-slate-400{color:#94a3b8!important}
+.happy-site .pricing-card-light button{color:#0f172a!important}
+.happy-site #premium{margin-top:-1.5rem}
+@media (min-width:640px){.happy-site #premium{margin-top:-2.5rem}}
+.happy-site .affiliate-section{margin-top:4rem}
+@media (min-width:1024px){.happy-site .affiliate-section{margin-top:7rem}}
+.mobile-vault-screen{display:none}
+.mobile-affiliate-section{display:none}
+.dream-calendar{margin-top:1rem;border:1px solid #d7deea;border-radius:1rem;background:#f7f8fb;padding:1rem;color:#111827}
+.calendar-nav{display:grid;height:2rem;width:2rem;place-items:center;border:1px solid #cbd5e1;border-radius:.6rem;background:#fff;color:#334155;font-size:1.3rem;line-height:1}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem}
+.calendar-weekday{text-align:center;color:#64748b;font-size:.68rem;font-weight:700}
+.calendar-day{position:relative;display:grid;min-height:2.45rem;place-items:center;border:1px solid #e2e8f0;border-radius:.65rem;background:#fff;color:#1e293b;font-size:.75rem}
+.calendar-empty{border-color:transparent;background:transparent}
+.calendar-has-entry{border-color:#8b5cf6;background:#eef2ff;font-weight:700;cursor:pointer}
+.calendar-has-entry img{position:absolute;right:.18rem;top:.18rem;height:.75rem;width:.75rem;border-radius:.25rem;object-fit:cover}
 
-@media (max-width:640px){
-  .happy-site>section{padding:1rem!important;gap:1.25rem!important}
-  .happy-site nav{align-items:flex-start!important;gap:.75rem!important}
-  .happy-site nav>a{width:100%;font-size:.72rem!important;letter-spacing:.13em!important}
-  .happy-site nav>div{width:100%;flex-wrap:nowrap!important;gap:1rem!important;font-size:.78rem!important;overflow-x:auto;padding:.15rem 0 .5rem;white-space:nowrap;scrollbar-width:none}
-  .happy-site nav>div::-webkit-scrollbar{display:none}
-  .happy-site header{padding:.25rem 0 .5rem!important}
-  .happy-site header h1 span:first-child{font-size:clamp(3.4rem,20vw,5.2rem)!important;line-height:.86!important;letter-spacing:-.065em!important}
-  .happy-site header h1 span:nth-child(2){font-size:1.35rem!important;letter-spacing:.1em!important;margin-top:.65rem!important}
-  .happy-site header h1 span:nth-child(3){font-size:.75rem!important;letter-spacing:.32em!important}
-  .happy-site header p{font-size:1rem!important;line-height:1.45!important;margin-top:1rem!important}
-  .happy-site header p span[class*="text-3xl"]{font-size:1.65rem!important}
-  .happy-site form,.happy-site article,.happy-site aside{border-radius:1.25rem!important;padding:1rem!important}
-  .happy-site textarea{min-height:150px}
-  .happy-site button{min-height:44px}
-  .happy-site form>button,.happy-site article>button,.happy-site section[aria-label="Save this reading"]>button{width:100%}
-  .happy-site button[aria-label="Speak your dream"]{width:2.75rem!important;height:2.75rem!important;min-height:2.75rem!important;padding:0!important}
-  .happy-site button+span{display:block;margin:.65rem 0 0!important;text-align:center}
-}
+.shooting-star-emitter,.shooting-star-emitter-2{position:absolute;width:2px;height:2px;border-radius:50%;pointer-events:none;animation:shooting-star 15s ease-in-out infinite}.shooting-star-emitter{top:10%;right:15%;background:linear-gradient(-45deg,#fff,rgba(190,55,255,0));filter:drop-shadow(0 0 6px rgba(190,55,255,.85));animation-delay:4s}.shooting-star-emitter-2{top:25%;right:-5%;background:linear-gradient(-45deg,#fff,rgba(32,215,255,0));filter:drop-shadow(0 0 6px rgba(32,215,255,.85));animation-duration:18s;animation-delay:10s}
 
 @media (prefers-reduced-motion:reduce){.nebula-glow-1,.nebula-glow-2,.shooting-star-emitter,.shooting-star-emitter-2{animation:none!important}}
 
@@ -81,3 +89,4 @@
 input:not([type="checkbox"]):not([type="radio"]),textarea,select{background:#fff!important;color:#0f172a!important}input:not([type="checkbox"]):not([type="radio"])::placeholder,textarea::placeholder{color:#64748b!important}
 @media (max-width:900px){.dream-hero-grid{grid-template-columns:1fr;gap:.5rem}.dream-orbit{min-height:250px;order:-1}.dream-orbit-ring,.dream-orbit-glow{width:230px;height:230px;min-width:230px;min-height:230px}.dream-orbit-logo{width:125px;height:125px}.dream-orbit-star{top:14%;right:27%}}
 @media (max-width:640px){.site-navigation{gap:.8rem}.site-brand-name{font-size:.72rem!important;letter-spacing:.13em!important}.site-navigation-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;font-size:.72rem;letter-spacing:.04em}.site-navigation-links>a{display:flex;align-items:center;justify-content:center;min-height:44px;text-align:center}.site-navigation-links .private-vault-login{grid-column:1/-1;width:100%;justify-content:center}.dream-main-grid{display:grid!important;grid-template-columns:1fr!important}.dream-entry-column,.dream-vault-column{display:block!important}.dream-entry-column>*+*,.dream-vault-column>*+*{margin-top:1.25rem}.dream-reading-grid{display:grid!important;grid-template-columns:1fr!important}.dream-entry-card,.dream-reading-card{order:initial!important;width:100%}.dream-steps{display:grid!important;grid-template-columns:repeat(3,minmax(220px,1fr))!important;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:.35rem}.dream-steps>article{min-width:220px}}
+@media (max-width:640px){html,body,#root,.happy-site{max-width:100%;overflow-x:hidden}.happy-site>section{width:100%;min-width:0;padding-right:1rem!important;padding-left:1rem!important}.dream-hero-grid,.dream-main-grid,.dream-reading-grid{width:100%;min-width:0}.dream-hero-title{font-size:clamp(3.25rem,18vw,4.25rem)!important}.dream-steps{max-width:100%;overflow-x:auto}.consent-banner{right:1rem!important;left:1rem!important;width:auto!important;max-width:calc(100vw - 2rem)!important;margin:0!important;padding:1.25rem!important}.consent-banner p{overflow-wrap:anywhere}.consent-banner button{width:100%}}

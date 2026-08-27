@@ -19,7 +19,7 @@ export default function ConsentBanner() {
   }
 
   return (
-    <aside className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-3xl rounded-3xl border border-white/15 bg-slate-950/95 p-5 text-slate-100 shadow-2xl shadow-black/60 backdrop-blur" role="dialog" aria-label="Privacy choices">
+    <aside className="consent-banner fixed inset-x-4 bottom-4 z-50 mx-auto max-w-3xl rounded-3xl border border-white/15 bg-slate-950/95 p-5 text-slate-100 shadow-2xl shadow-black/60 backdrop-blur" role="dialog" aria-label="Privacy choices">
       <h2 className="font-display text-lg font-semibold text-white">Your privacy choices</h2>
       <p className="mt-2 text-sm leading-6 text-slate-300">
         We use Google Analytics and, when approved, Google advertising to measure visits and support this free site. You can accept or reject optional analytics and advertising storage. Read our <a className="text-cyan-300 underline" href="/privacy">Privacy Policy</a>.

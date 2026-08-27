@@ -231,6 +231,26 @@ function useSpeechToText(onTranscript: (text: string) => void) {
   return { isListening, isSupported, toggle };
 }
 
+function DreamCalendar({ entries, onSelect }: { entries: VaultEntry[]; onSelect: (id: string) => void }) {
+  const latest = entries[0]?.createdAt ? new Date(entries[0].createdAt) : new Date();
+  const [month, setMonth] = useState(new Date(latest.getFullYear(), latest.getMonth(), 1));
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const firstDay = new Date(year, monthIndex, 1).getDay();
+  const byDay = new Map<string, VaultEntry[]>();
+
+  entries.forEach((entry) => {
+    const key = new Date(entry.createdAt).toISOString().slice(0, 10);
+    byDay.set(key, [...(byDay.get(key) || []), entry]);
+  });
+
+  return <section className="dream-calendar mt-5" aria-label="Dream calendar">
+    <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-950">{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p><p className="text-xs text-slate-600">Dream logo = entry saved</p></div><div className="flex gap-1"><button type="button" aria-label="Previous month" onClick={() => setMonth(new Date(year, monthIndex - 1, 1))} className="calendar-nav">‹</button><button type="button" aria-label="Next month" onClick={() => setMonth(new Date(year, monthIndex + 1, 1))} className="calendar-nav">›</button></div></div>
+    <div className="calendar-grid mt-3">{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <span key={`${day}-${index}`} className="calendar-weekday">{day}</span>)}{Array.from({ length: firstDay }).map((_, index) => <span key={`empty-${index}`} className="calendar-day calendar-empty" />)}{Array.from({ length: daysInMonth }, (_, index) => { const day = index + 1; const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; const dayEntries = byDay.get(key) || []; return <button key={key} type="button" className={`calendar-day ${dayEntries.length ? 'calendar-has-entry' : ''}`} onClick={() => dayEntries[0] && onSelect(dayEntries[0].id)} aria-label={dayEntries.length ? `${day} with dream entry` : `${day}`}><span>{day}</span>{dayEntries.length ? <img src="/dream-brand-icon.png" alt="" /> : null}</button>; })}</div>
+  </section>;
+}
+
 export default function DreamJournal() {
   const [dream, setDream] = useState('');
   const [dreamDate, setDreamDate] = useState('');
@@ -960,6 +980,8 @@ export default function DreamJournal() {
                   ))
                 )}
               </div>
+
+              <DreamCalendar entries={orderedVault} onSelect={setSelectedId} />
 
               {patternInsight ? (
                 <div className="mt-5 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/5 p-4">
