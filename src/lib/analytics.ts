@@ -1,4 +1,11 @@
-type AnalyticsValue = string | number | boolean;
+type AnalyticsValue = string | number | boolean | AnalyticsItem[];
+
+export type AnalyticsItem = {
+  item_id: string;
+  item_name: string;
+  price?: number;
+  quantity?: number;
+};
 
 type AnalyticsParameters = Record<string, AnalyticsValue>;
 

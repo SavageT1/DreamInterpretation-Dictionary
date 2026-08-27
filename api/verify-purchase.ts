@@ -57,10 +57,19 @@ export default async function handler(request: IncomingMessage, response: Server
       return sendJson(response, 402, { error: 'Premium subscription was not found.' });
     }
 
+    const plan = metadata.plan as 'weekly' | 'monthly' | 'annual';
+    const values = { weekly: 3.99, monthly: 8.99, annual: 49.99 } as const;
+
     return sendJson(
       response,
       200,
-      { premium: true },
+      {
+        premium: true,
+        plan,
+        transactionId: sessionId,
+        value: values[plan],
+        currency: 'USD',
+      },
       {
         'Set-Cookie': [
           createPremiumCookie(subscriptionId),

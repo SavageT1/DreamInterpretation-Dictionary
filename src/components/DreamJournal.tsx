@@ -364,6 +364,10 @@ export default function DreamJournal() {
           premium?: boolean;
           paymentsEnabled?: boolean;
           freeRemaining?: number | null;
+          plan?: PlanId;
+          transactionId?: string;
+          value?: number;
+          currency?: string;
           error?: string;
         };
         if (!response.ok) throw new Error(data.error || 'Unable to verify access.');
@@ -372,7 +376,18 @@ export default function DreamJournal() {
         if (typeof data.freeRemaining === 'number') {
           setFreeInterpretationsLeft(data.freeRemaining);
         }
-        if (sessionId) {
+        if (sessionId && data.plan && data.transactionId && typeof data.value === 'number') {
+          trackEvent('purchase', {
+            transaction_id: data.transactionId,
+            value: data.value,
+            currency: data.currency || 'USD',
+            items: [{
+              item_id: `dream_premium_${data.plan}`,
+              item_name: `DREAM Premium ${data.plan}`,
+              price: data.value,
+              quantity: 1,
+            }],
+          });
           trackEvent('premium_checkout_completed', { source: 'stripe_checkout' });
         }
         window.history.replaceState({}, '', window.location.pathname);
@@ -407,6 +422,7 @@ export default function DreamJournal() {
       await Promise.all(localVault.map((entry) =>
         setDoc(doc(db, 'users', result.user.uid, 'dreams', entry.id), entry, { merge: true }),
       ));
+      trackEvent('login', { method: 'Google' });
       trackEvent('member_signed_in');
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
@@ -670,7 +686,20 @@ export default function DreamJournal() {
         throw new Error(data.error || 'Secure billing could not be opened.');
       }
       if (route === '/api/checkout') {
-        trackEvent('premium_checkout_started', { source: 'premium_card', plan: plan ?? 'weekly' });
+        const selectedPlan = plan ?? 'weekly';
+        const planValues: Record<PlanId, number> = { weekly: 3.99, monthly: 8.99, annual: 49.99 };
+        const value = planValues[selectedPlan];
+        trackEvent('begin_checkout', {
+          currency: 'USD',
+          value,
+          items: [{
+            item_id: `dream_premium_${selectedPlan}`,
+            item_name: `DREAM Premium ${selectedPlan}`,
+            price: value,
+            quantity: 1,
+          }],
+        });
+        trackEvent('premium_checkout_started', { source: 'premium_card', plan: selectedPlan });
       }
       window.location.assign(data.url);
     } catch (error) {
