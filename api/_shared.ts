@@ -2,12 +2,22 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export const FREE_INTERPRETATION_LIMIT = 3;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? '';
+const isVercelProduction = process.env.VERCEL_ENV === 'production';
 const stripeConfigurationPresent = Boolean(
-  process.env.STRIPE_SECRET_KEY &&
-  process.env.ENTITLEMENT_SECRET,
+  stripeSecretKey &&
+  process.env.ENTITLEMENT_SECRET &&
+  (!isVercelProduction || stripeSecretKey.startsWith('sk_live_')),
 );
 export const PAYMENTS_ENABLED =
-  process.env.PAYMENTS_ENABLED === 'true' || stripeConfigurationPresent;
+  stripeConfigurationPresent && process.env.PAYMENTS_ENABLED !== 'false';
+
+export function assertProductionStripeConfiguration() {
+  if (!stripeSecretKey) throw new Error('Stripe is not configured.');
+  if (isVercelProduction && !stripeSecretKey.startsWith('sk_live_')) {
+    throw new Error('Production checkout requires a Stripe live-mode secret key.');
+  }
+}
 
 export function sendJson(
   response: ServerResponse,

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 type LegalPageProps = { path: string };
 
-const updated = 'August 20, 2026';
+const updated = 'August 28, 2026';
 
 const pages: Record<string, { title: string; intro: string; content: ReactNode }> = {
   '/privacy': {
@@ -26,7 +26,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
       <h2>No professional advice</h2><p>The service does not provide medical, mental-health, legal, or financial advice and is not a substitute for a qualified professional. If a dream or waking experience causes distress or raises safety concerns, contact an appropriate licensed professional or emergency service.</p>
       <h2>Acceptable use</h2><p>Do not misuse the service, attempt to disrupt it, submit unlawful material, probe its security, automate excessive requests, or enter another person's private information without permission.</p>
       <h2>Saved information</h2><p>Signed-in Vault entries are synchronized through your private account. Signed-out entries depend on browser storage and may be lost if storage is cleared or the device changes.</p>
-      <h2>Subscriptions and cancellation</h2><p>Premium access is a recurring monthly subscription at the price shown before checkout. Stripe processes payment and renews the subscription automatically until you cancel. You can cancel future renewals from the billing-management link on the dream tool; cancellation takes effect at the end of the current paid period. Except where law requires otherwise, completed subscription charges are non-refundable.</p>
+      <h2>Subscriptions and cancellation</h2><p>Premium access is offered as a recurring weekly, monthly, or annual subscription at the billing interval and price shown before checkout. Stripe processes payment and renews the selected subscription automatically until you cancel. You can cancel future renewals from the billing-management link on the dream tool; cancellation takes effect at the end of the current paid period. Except where law requires otherwise, completed subscription charges are non-refundable.</p>
       <h2>Third-party services</h2><p>Sponsored resources and other external links lead to independent websites. We do not control their products, availability, claims, prices, or privacy practices.</p>
       <h2>Changes and availability</h2><p>Features and these terms may change. The service is provided as available without a guarantee of uninterrupted operation or a particular interpretation outcome.</p>
     </>,

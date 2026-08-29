@@ -167,6 +167,7 @@ function pickTitle(dream: string) {
 function useSpeechToText(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef('');
 
@@ -196,13 +197,29 @@ function useSpeechToText(onTranscript: (text: string) => void) {
       }
       onTranscript(`${baseTextRef.current} ${finalTranscript}${interimTranscript}`.trim());
     };
+    recognition.onstart = () => {
+      setIsListening(true);
+      setErrorMessage('');
+    };
     recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = (event: { error?: string }) => {
+      setIsListening(false);
+      const error = event.error || '';
+      setErrorMessage(
+        error === 'not-allowed' || error === 'service-not-allowed'
+          ? 'Microphone access is blocked. Allow microphone access for this site, then try again.'
+          : error === 'no-speech'
+            ? 'No speech was detected. Try again and speak after the microphone activates.'
+            : error === 'audio-capture'
+              ? 'No working microphone was found on this device.'
+              : 'Voice input stopped unexpectedly. Please try again.',
+      );
+    };
 
     recognitionRef.current = recognition;
 
     return () => {
-      recognition.stop();
+      recognition.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -210,8 +227,12 @@ function useSpeechToText(onTranscript: (text: string) => void) {
   function start(currentText: string) {
     if (!recognitionRef.current) return;
     baseTextRef.current = currentText.trim();
-    recognitionRef.current.start();
-    setIsListening(true);
+    setErrorMessage('');
+    try {
+      recognitionRef.current.start();
+    } catch {
+      setErrorMessage('Voice input is already starting. Please wait a moment and try again.');
+    }
   }
 
   function stop() {
@@ -228,7 +249,7 @@ function useSpeechToText(onTranscript: (text: string) => void) {
     }
   }
 
-  return { isListening, isSupported, toggle };
+  return { isListening, isSupported, errorMessage, toggle };
 }
 
 function DreamCalendar({ entries, onSelect }: { entries: VaultEntry[]; onSelect: (id: string) => void }) {
@@ -267,6 +288,7 @@ export default function DreamJournal() {
   const [checkoutPlan, setCheckoutPlan] = useState<PlanId | null>(null);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
+  const [isJoiningNewsletter, setIsJoiningNewsletter] = useState(false);
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [member, setMember] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -408,12 +430,12 @@ export default function DreamJournal() {
     }
   }, [member, vault]);
 
-  async function accountHeaders() {
-    if (!member) return {};
-    return { Authorization: `Bearer ${await member.getIdToken()}` };
+  async function accountHeaders(user: User | null = member) {
+    if (!user) return {};
+    return { Authorization: `Bearer ${await user.getIdToken()}` };
   }
 
-  async function handleSignIn() {
+  async function handleSignIn(): Promise<User | null> {
     setIsSigningIn(true);
     setAccountError('');
     try {
@@ -424,6 +446,7 @@ export default function DreamJournal() {
       ));
       trackEvent('login', { method: 'Google' });
       trackEvent('member_signed_in');
+      return result.user;
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       setAccountError(
@@ -433,6 +456,7 @@ export default function DreamJournal() {
             ? 'Sign-in was cancelled.'
             : 'Sign-in could not be completed. Please try again.',
       );
+      return null;
     } finally {
       setIsSigningIn(false);
     }
@@ -515,11 +539,30 @@ export default function DreamJournal() {
     }
   }
 
-  function handleNewsletterSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleNewsletterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!newsletterEmail.trim()) return;
-    window.localStorage.setItem('dream-dictionary:newsletter-email', newsletterEmail.trim());
-    setNewsletterStatus('You’re on the list for Dream Vault updates.');
+    const email = newsletterEmail.trim();
+    if (!email || isJoiningNewsletter) return;
+    setIsJoiningNewsletter(true);
+    setNewsletterStatus('');
+    trackEvent('newsletter_signup_clicked', { source: 'homepage' });
+    try {
+      const response = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await response.json()) as { message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || 'Signup could not be completed.');
+      setNewsletterStatus(data.message || 'You’re on the list for Dream Vault updates.');
+      setNewsletterEmail('');
+      trackEvent('newsletter_signup_completed', { source: 'homepage' });
+    } catch (error) {
+      setNewsletterStatus(error instanceof Error ? error.message : 'Signup could not be completed.');
+      trackEvent('newsletter_signup_failed', { source: 'homepage' });
+    } finally {
+      setIsJoiningNewsletter(false);
+    }
   }
 
   async function handleInterpret(event: FormEvent<HTMLFormElement>) {
@@ -667,13 +710,6 @@ export default function DreamJournal() {
     setInterpretationError('');
 
     try {
-      if (!member && route === '/api/checkout') {
-        setInterpretationError('Sign in first so your membership and Dream Vault work on every device.');
-        setIsStartingCheckout(false);
-        setCheckoutPlan(null);
-        document.getElementById('dream-vault')?.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
       const response = await fetch(route, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await accountHeaders()) },
@@ -708,6 +744,11 @@ export default function DreamJournal() {
       );
       setIsStartingCheckout(false);
       setCheckoutPlan(null);
+    } finally {
+      if (window.location.href.startsWith(window.location.origin)) {
+        setIsStartingCheckout(false);
+        setCheckoutPlan(null);
+      }
     }
   }
 
@@ -768,8 +809,16 @@ export default function DreamJournal() {
                 <span className="mt-2 text-sm font-medium text-slate-200">Date of dream</span>
                 <input type="date" value={dreamDate} onChange={(event) => setDreamDate(event.target.value)} required aria-label="Date of dream" className="rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-cyan-300 focus:ring-4 focus:ring-cyan-300/20" />
                 <button type="button" onClick={() => speech.toggle(dream)} disabled={!speech.isSupported} className={`voice-input-button ${speech.isListening ? 'is-listening' : ''}`} aria-pressed={speech.isListening}>
-                  <span className="voice-input-icon" aria-hidden="true">{speech.isListening ? '■' : '◉'}</span> {speech.isListening ? 'Listening… tap to stop' : 'Talk to text'}
+                  <span className="voice-input-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="2" width="6" height="12" rx="3" />
+                      <path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8" />
+                    </svg>
+                  </span>
+                  {speech.isListening ? 'Listening… tap to stop' : 'Talk to text'}
                 </button>
+                {!speech.isSupported ? <span className="text-xs text-amber-200">Voice input is not supported in this browser. Use Chrome or Edge on desktop.</span> : null}
+                {speech.errorMessage ? <span className="text-xs text-rose-200" role="alert">{speech.errorMessage}</span> : null}
                 <textarea
                   value={dream}
                   onChange={(event) => handleDreamChange(event.target.value)}
@@ -1137,7 +1186,7 @@ export default function DreamJournal() {
           </article>
         </section>
 
-        <section id="premium" className="dream-pricing-section mt-8" aria-label="Pricing options">
+        <section id="premium" className="dream-pricing-section" style={{ marginTop: '3.5rem' }} aria-label="Pricing options">
           <div className="mb-5 text-center"><p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-300">Keep track of your dreams</p><h2 className="mt-2 font-display text-3xl font-bold text-white">Start understanding your dreams</h2></div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -1147,7 +1196,7 @@ export default function DreamJournal() {
               return (
                 <div
                   key={planId}
-                  className={`relative rounded-3xl border p-6 ${
+                  className={`relative flex flex-col rounded-3xl border p-6 ${
                     isFeatured
                       ? 'border-fuchsia-400/60 bg-gradient-to-br from-fuchsia-500/10 to-cyan-400/10'
                       : 'border-slate-900/10 bg-white'
@@ -1159,17 +1208,19 @@ export default function DreamJournal() {
                     </span>
                   ) : null}
                   <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">{plan.label}</p>
-                  {plan.was ? <p className="mt-3 text-sm text-slate-400 line-through">{plan.was}</p> : null}
-                  <p className={`font-display text-3xl font-bold text-slate-950 ${plan.was ? '' : 'mt-3'}`}>
+                  <p className={`mt-3 text-sm text-slate-400 line-through ${plan.was ? '' : 'invisible'}`} aria-hidden={!plan.was}>
+                    {plan.was ?? plan.price}
+                  </p>
+                  <p className="font-display text-3xl font-bold text-slate-950">
                     {plan.price} <span className="text-sm font-normal text-slate-500">{plan.cadence}</span>
                   </p>
                   {plan.save ? <p className="mt-1 text-xs font-semibold text-teal-600">{plan.save}</p> : null}
-                  <p className="mt-3 text-sm leading-6 text-slate-300">Unlimited interpretations, private Dream Vault saves, and recurring pattern insights.</p>
+                  <p className="mb-5 mt-3 text-sm leading-6 text-slate-300">Unlimited interpretations, private Dream Vault saves, and recurring pattern insights.</p>
                   <button
                     type="button"
                     onClick={() => openBillingRoute(isPremium ? '/api/portal' : '/api/checkout', planId)}
                     disabled={isStartingCheckout || (!isPremium && !paymentsEnabled)}
-                    className="plan-cta mt-5 w-full rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60"
+                    className="plan-cta mt-auto w-full rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60"
                   >
                     {isStartingCheckout && checkoutPlan === planId
                       ? 'Opening secure billing...'
@@ -1184,7 +1235,7 @@ export default function DreamJournal() {
         </section>
 
         <section className="dream-newsletter rounded-[2rem] border border-cyan-300/25 bg-gradient-to-r from-cyan-500/10 via-indigo-500/15 to-fuchsia-500/15 p-6 shadow-2xl sm:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.28em] text-cyan-300">Stay connected</p><h2 className="mt-2 font-display text-2xl font-bold text-white">Get the next dream insight</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Join the Dream Vault list for new dream prompts, lucid-dreaming tips, feature announcements, and simple ways to understand your nighttime patterns.</p></div><form onSubmit={handleNewsletterSubmit} className="flex w-full max-w-xl flex-col gap-3 sm:flex-row"><label className="sr-only" htmlFor="newsletter-email">Email address</label><input id="newsletter-email" type="email" required value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} placeholder="Your email address" className="newsletter-input min-w-0 flex-1 rounded-full border border-white/20 bg-white px-5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-cyan-300" /><button type="submit" className="newsletter-button rounded-full bg-gradient-to-r from-cyan-300 to-fuchsia-400 px-6 py-3 text-sm font-bold text-slate-950 transition hover:scale-[1.02]">GET DREAM UPDATES</button></form></div>{newsletterStatus ? <p className="mt-4 text-sm font-semibold text-cyan-200">{newsletterStatus}</p> : null}
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.28em] text-cyan-300">Stay connected</p><h2 className="mt-2 font-display text-2xl font-bold text-white">Get the next dream insight</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Join the Dream Vault list for new dream prompts, lucid-dreaming tips, feature announcements, and simple ways to understand your nighttime patterns.</p></div><form onSubmit={handleNewsletterSubmit} className="flex w-full max-w-xl flex-col gap-3 sm:flex-row"><label className="sr-only" htmlFor="newsletter-email">Email address</label><input id="newsletter-email" type="email" required value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} placeholder="Your email address" className="newsletter-input min-w-0 flex-1 rounded-full border border-white/20 bg-white px-5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-cyan-300" /><button type="submit" disabled={isJoiningNewsletter} className="newsletter-button rounded-full bg-gradient-to-r from-cyan-300 to-fuchsia-400 px-6 py-3 text-sm font-bold text-slate-950 transition hover:scale-[1.02] disabled:opacity-60">{isJoiningNewsletter ? 'JOINING…' : 'GET DREAM UPDATES'}</button></form></div>{newsletterStatus ? <p className="mt-4 text-sm font-semibold text-cyan-200" aria-live="polite">{newsletterStatus}</p> : null}
         </section>
 
         <section className="rounded-[2rem] border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8">

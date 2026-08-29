@@ -1,5 +1,7 @@
 allowBuilds:
+  '@firebase/util': true
   esbuild: true
+  protobufjs: true
 
 overrides:
   body-parser: 1.20.6

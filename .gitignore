@@ -9,3 +9,4 @@ coverage/
 output/playwright/
 .env*
 !.env.example
+.vercel
