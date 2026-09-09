@@ -956,7 +956,7 @@ export default function DreamJournal() {
                       ? 'Manage subscription'
                       : paymentsEnabled
                         ? 'Unlock unlimited readings'
-                        : 'Premium launching shortly'}
+                        : 'Unlock unlimited readings'}
                 </button>
                 <a href="#premium" className="mt-3 block text-center text-xs text-slate-300 underline underline-offset-2">
                   See all plans (weekly, monthly, annual)
