@@ -1283,7 +1283,7 @@ export default function DreamJournal() {
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 6v6l4 2" />
               </svg>
-              Introductory pricing — locked in for as long as you stay subscribed
+              Introductory pricing — available while this offer lasts
             </div>
 
             <div className="mt-5 rounded-2xl border border-fuchsia-400/30 bg-gradient-to-br from-fuchsia-500/15 to-cyan-400/10 p-4">
@@ -1309,7 +1309,7 @@ export default function DreamJournal() {
               Or see monthly &amp; annual plans
             </a>
             <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-              <span className="text-amber-400">★★★★★</span> Loved by thousands interpreting their dreams daily
+              <span className="text-amber-400" aria-hidden="true">★★★★★</span> Premium support for your dream practice
             </p>
           </div>
         </div>
