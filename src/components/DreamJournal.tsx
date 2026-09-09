@@ -23,7 +23,7 @@ const FREE_INTERPRETATION_LIMIT = 3;
 
 const PLAN_DETAILS: Record<PlanId, { label: string; price: string; cadence: string; was?: string; save?: string }> = {
   weekly: { label: 'Weekly', price: '$3.99', cadence: '/ week' },
-  monthly: { label: 'Monthly', price: '$8.99', cadence: '/ month', was: '$12.99', save: 'Save 44% vs. weekly billing' },
+  monthly: { label: 'Monthly', price: '$8.99', cadence: '/ month' },
   annual: { label: 'Annual', price: '$49.99', cadence: '/ year', was: '$207.48', save: 'Save 76% vs. weekly · best value' },
 };
 
