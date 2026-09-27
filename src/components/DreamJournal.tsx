@@ -161,6 +161,27 @@ function pickTitle(dream: string) {
   return cleaned.length > 42 ? `${cleaned.slice(0, 42).trimEnd()}...` : cleaned;
 }
 
+// Pull the AI's closing "Questions to consider" out of a reading so each
+// question can be answered for a focused follow-up. Tolerates numbered,
+// bulleted, or plain-line formats.
+function extractQuestions(reading: string) {
+  const lines = reading.split(/\r?\n/);
+  const headingIndex = lines.findIndex((line) =>
+    /questions?\s+to\s+consider/i.test(line.replace(/[#*_>`]/g, '')),
+  );
+  if (headingIndex === -1) return [];
+  const questions: string[] = [];
+  for (let i = headingIndex + 1; i < lines.length && questions.length < 3; i += 1) {
+    const cleaned = lines[i]
+      .replace(/[#*_>`]/g, '')
+      .replace(/^\s*(?:\d+[.)\-:]|[-•*])\s*/, '')
+      .trim();
+    if (!cleaned || cleaned.length > 300) continue;
+    questions.push(cleaned);
+  }
+  return questions;
+}
+
 // Minimal, dependency-free speech-to-text using the browser's native
 // SpeechRecognition API. Degrades silently to "unsupported" on browsers
 // that don't implement it (older Firefox, some in-app webviews).
@@ -299,38 +320,88 @@ export default function DreamJournal() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [isReadingAloud, setIsReadingAloud] = useState(false);
   const [hasShownPaywallThisReading, setHasShownPaywallThisReading] = useState(false);
+  const [followUps, setFollowUps] = useState<Array<{ question: string; answer: string; reading: string }>>([]);
+  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
+  const [followUpAnswer, setFollowUpAnswer] = useState('');
+  const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
+  const [followUpError, setFollowUpError] = useState('');
   const interpretTimer = useRef<number | null>(null);
   const pendingDream = useRef('');
   const hasTrackedDreamStart = useRef(false);
 
   const speech = useSpeechToText((text) => setDream(text));
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceCacheRef = useRef<Map<string, string>>(new Map());
+  const [isLoadingVoice, setIsLoadingVoice] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
+
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
-  function toggleReadAloud() {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !hasFreshReading) return;
+  function stopVoice() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsReadingAloud(false);
+  }
+
+  function playVoiceUrl(url: string) {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => setIsReadingAloud(false);
+    audio.onerror = () => setIsReadingAloud(false);
+    audio.play().then(
+      () => setIsReadingAloud(true),
+      () => setIsReadingAloud(false),
+    );
+  }
+
+  async function toggleReadAloud() {
+    if (!hasFreshReading || isLoadingVoice) return;
     if (isReadingAloud) {
-      window.speechSynthesis.cancel();
-      setIsReadingAloud(false);
+      stopVoice();
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(interpretation.replace(/[#*_>`]/g, ''));
-    utterance.rate = 0.82;
-    utterance.pitch = 0.92;
-    utterance.volume = 0.88;
-    const voices = window.speechSynthesis.getVoices();
-    utterance.voice = voices.find((voice) => /Samantha|Karen|Moira|Google UK English Female|Microsoft Zira/i.test(voice.name)) || voices.find((voice) => /female|natural|siri/i.test(voice.name)) || voices.find((voice) => voice.lang?.startsWith('en')) || null;
-    utterance.onend = () => setIsReadingAloud(false);
-    utterance.onerror = () => setIsReadingAloud(false);
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-    setIsReadingAloud(true);
     trackEvent('dream_read_aloud_started');
+    const text = interpretation;
+    setVoiceError('');
+    const cached = voiceCacheRef.current.get(text);
+    if (cached) {
+      playVoiceUrl(cached);
+      return;
+    }
+
+    setIsLoadingVoice(true);
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!response.ok) throw new Error('Voiceover could not be generated.');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      voiceCacheRef.current.set(text, url);
+      playVoiceUrl(url);
+    } catch {
+      setVoiceError('Voiceover is unavailable right now. Please try again.');
+      setIsReadingAloud(false);
+    } finally {
+      setIsLoadingVoice(false);
+    }
   }
 
   useEffect(() => {
@@ -438,6 +509,12 @@ export default function DreamJournal() {
   async function handleSignIn(): Promise<User | null> {
     setIsSigningIn(true);
     setAccountError('');
+    // Never leave the button stuck on "Connecting…" — if the sign-in popup
+    // hangs or is lost, release the UI and explain what happened.
+    const signInTimeout = window.setTimeout(() => {
+      setIsSigningIn(false);
+      setAccountError('Sign-in is taking too long. If a sign-in window opened, finish it there; otherwise check for a blocked popup and try again.');
+    }, 60000);
     try {
       const localVault = [...vault];
       const result = await signInWithPopup(auth, googleProvider);
@@ -452,12 +529,15 @@ export default function DreamJournal() {
       setAccountError(
         message.includes('unauthorized-domain')
           ? 'Secure sign-in is being connected to this domain. Please try again shortly.'
-          : message.includes('popup-closed') || message.includes('cancelled-popup')
-            ? 'Sign-in was cancelled.'
-            : 'Sign-in could not be completed. Please try again.',
+          : message.includes('popup-blocked')
+            ? 'Your browser blocked the sign-in window. Allow popups for this site, then try again.'
+            : message.includes('popup-closed') || message.includes('cancelled-popup')
+              ? 'Sign-in was cancelled.'
+              : 'Sign-in could not be completed. Please try again.',
       );
       return null;
     } finally {
+      window.clearTimeout(signInTimeout);
       setIsSigningIn(false);
     }
   }
@@ -500,6 +580,10 @@ export default function DreamJournal() {
   const hasDreamText = dream.trim().length > 0;
   const hasFreshReading = interpretedDream === dream.trim() && interpretation.trim().length > 0;
   const displayedInterpretation = isInterpreting ? '' : hasFreshReading ? interpretation : '';
+  const followUpQuestions = useMemo(
+    () => (hasFreshReading ? extractQuestions(interpretation) : []),
+    [hasFreshReading, interpretation],
+  );
 
   // Lightweight, client-side pattern insight derived from saved vault
   // entries. For a more accurate version, this belongs server-side
@@ -570,10 +654,6 @@ export default function DreamJournal() {
 
     const cleanDream = dream.trim();
     if (!cleanDream) return;
-    if (!dreamDate) {
-      setInterpretationError('Please add the date of this dream before requesting an interpretation.');
-      return;
-    }
 
     if (!isPremium && freeInterpretationsLeft <= 0) {
       setShowPaywall(true);
@@ -588,6 +668,11 @@ export default function DreamJournal() {
     setInterpretation('');
     setInterpretationError('');
     setSelectedId(null);
+    stopVoice();
+    setFollowUps([]);
+    setActiveQuestion(null);
+    setFollowUpAnswer('');
+    setFollowUpError('');
     pendingDream.current = cleanDream;
     trackEvent('dream_interpretation_started', { source: 'dream_form' });
 
@@ -613,7 +698,8 @@ export default function DreamJournal() {
       const nextInterpretation = result.interpretation.trim();
       setInterpretation(nextInterpretation);
       setInterpretedDream(cleanDream);
-      setTitle((current) => current.trim() || pickTitle(cleanDream));
+      setTitle(pickTitle(cleanDream));
+      setDreamBookNotes('');
       setIsPremium(Boolean(result.premium));
       if (typeof result.freeRemaining === 'number') {
         setFreeInterpretationsLeft(result.freeRemaining);
@@ -633,6 +719,64 @@ export default function DreamJournal() {
     } finally {
       setIsInterpreting(false);
       pendingDream.current = '';
+    }
+  }
+
+  async function submitFollowUp(question: string) {
+    if (isFollowUpLoading) return;
+    if (!isPremium && freeInterpretationsLeft <= 0) {
+      setShowPaywall(true);
+      return;
+    }
+
+    setIsFollowUpLoading(true);
+    setFollowUpError('');
+    trackEvent('followup_reading_started', { source: 'reading_questions' });
+
+    try {
+      const response = await fetch('/api/followup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await accountHeaders()) },
+        body: JSON.stringify({
+          dream: interpretedDream,
+          interpretation,
+          question,
+          answer: followUpAnswer.trim(),
+        }),
+      });
+      const result = (await response.json()) as {
+        interpretation?: string;
+        error?: string;
+        premium?: boolean;
+        freeRemaining?: number | null;
+        upgradeRequired?: boolean;
+      };
+
+      if (!response.ok || !result.interpretation?.trim()) {
+        if (result.upgradeRequired) {
+          setFreeInterpretationsLeft(0);
+          setShowPaywall(true);
+        }
+        throw new Error(result.error || 'The follow-up reading could not be completed.');
+      }
+
+      setFollowUps((current) => [
+        ...current,
+        { question, answer: followUpAnswer.trim(), reading: result.interpretation!.trim() },
+      ]);
+      setIsPremium(Boolean(result.premium));
+      if (typeof result.freeRemaining === 'number') {
+        setFreeInterpretationsLeft(result.freeRemaining);
+      }
+      setActiveQuestion(null);
+      setFollowUpAnswer('');
+      trackEvent('followup_reading_completed', { source: 'reading_questions' });
+    } catch (error) {
+      setFollowUpError(
+        error instanceof Error ? error.message : 'The follow-up reading is unavailable.',
+      );
+    } finally {
+      setIsFollowUpLoading(false);
     }
   }
 
@@ -804,10 +948,10 @@ export default function DreamJournal() {
               className="dream-entry-card rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
               aria-busy={isInterpreting}
             >
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-slate-200">Describe your dream in as much detail as you can remember.</span>
-                <span className="mt-2 text-sm font-medium text-slate-200">Date of dream</span>
-                <input type="date" value={dreamDate} onChange={(event) => setDreamDate(event.target.value)} required aria-label="Date of dream" className="rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-cyan-300 focus:ring-4 focus:ring-cyan-300/20" />
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-slate-200" htmlFor="dream-description">Describe your dream in as much detail as you can remember.</label>
+                <label className="mt-2 text-sm font-medium text-slate-200" htmlFor="dream-date">Date of dream <span className="font-normal text-slate-400">(optional)</span></label>
+                <input id="dream-date" type="date" value={dreamDate} onChange={(event) => setDreamDate(event.target.value)} aria-label="Date of dream (optional)" className="rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-cyan-300 focus:ring-4 focus:ring-cyan-300/20" />
                 <button type="button" onClick={() => speech.toggle(dream)} disabled={!speech.isSupported} className={`voice-input-button ${speech.isListening ? 'is-listening' : ''}`} aria-pressed={speech.isListening}>
                   <span className="voice-input-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -820,6 +964,7 @@ export default function DreamJournal() {
                 {!speech.isSupported ? <span className="text-xs text-amber-200">Voice input is not supported in this browser. Use Chrome or Edge on desktop.</span> : null}
                 {speech.errorMessage ? <span className="text-xs text-rose-200" role="alert">{speech.errorMessage}</span> : null}
                 <textarea
+                  id="dream-description"
                   value={dream}
                   onChange={(event) => handleDreamChange(event.target.value)}
                   rows={8}
@@ -830,7 +975,7 @@ export default function DreamJournal() {
                 <span className="text-xs text-slate-500">
                   Our Dream AI will securely read and interpret your dream, then break down the possible meaning for you.
                 </span>
-              </label>
+              </div>
 
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
@@ -878,11 +1023,12 @@ export default function DreamJournal() {
 
                 {hasFreshReading ? (
                   <div className="mt-5 flex flex-wrap items-center gap-3 border-y border-white/10 py-3">
-                    <button type="button" onClick={toggleReadAloud} className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20">
+                    <button type="button" onClick={toggleReadAloud} disabled={isLoadingVoice} className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-60">
                       <span aria-hidden="true">{isReadingAloud ? 'Ⅱ' : '▶'}</span>
-                      {isReadingAloud ? 'Pause reading' : 'Read aloud'}
+                      {isLoadingVoice ? 'Preparing voice…' : isReadingAloud ? 'Pause reading' : 'Read aloud'}
                     </button>
                     <span className="text-xs text-slate-500">A calm, slower voice for quiet reflection</span>
+                    {voiceError ? <span className="w-full text-xs text-rose-200" role="alert">{voiceError}</span> : null}
                   </div>
                 ) : null}
 
@@ -894,10 +1040,6 @@ export default function DreamJournal() {
 
                 {hasFreshReading ? (
                   <section className="mt-6 border-t border-white/10 pt-5" aria-label="Save this reading">
-                    <button type="button" onClick={toggleReadAloud} className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20">
-                      <span aria-hidden="true">{isReadingAloud ? 'Ⅱ' : '▶'}</span>
-                      {isReadingAloud ? 'Pause reading' : 'Read aloud again'}
-                    </button>
                     <p className="text-sm font-semibold text-white">Add it to your Dream Vault?</p>
                     <p className="mt-1 text-xs leading-5 text-slate-400">
                       These details are optional and only help you find this dream later.
@@ -934,7 +1076,76 @@ export default function DreamJournal() {
                     </div>
                   </section>
                 ) : null}
-              </article>
+              
+                {hasFreshReading && followUpQuestions.length > 0 ? (
+                  <section className="mt-6 border-t border-white/10 pt-5" aria-label="Go deeper">
+                    <p className="text-sm font-semibold text-white">Go deeper &mdash; choose a question</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Pick one of your reading&apos;s reflection questions for a focused follow-up.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {followUpQuestions.map((question) => (
+                        <div key={question} className="rounded-2xl border border-white/10 bg-white/5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveQuestion(activeQuestion === question ? null : question);
+                              setFollowUpError('');
+                            }}
+                            aria-expanded={activeQuestion === question}
+                            className="w-full px-4 py-3 text-left text-sm leading-6 text-white transition hover:text-cyan-100"
+                          >
+                            {question}
+                          </button>
+                          {activeQuestion === question ? (
+                            <div className="px-4 pb-4">
+                              <label className="flex flex-col gap-2">
+                                <span className="text-xs text-slate-400">Your answer (optional)</span>
+                                <textarea
+                                  value={followUpAnswer}
+                                  onChange={(event) => setFollowUpAnswer(event.target.value)}
+                                  rows={2}
+                                  placeholder="What comes to mind?"
+                                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-fuchsia-400/60 focus:bg-white/10"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => submitFollowUp(question)}
+                                disabled={isFollowUpLoading}
+                                className="mt-3 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60"
+                              >
+                                {isFollowUpLoading ? 'Reading…' : 'Get deeper reading'}
+                              </button>
+                              {followUpError ? (
+                                <p className="mt-2 text-xs leading-5 text-rose-200" role="alert">{followUpError}</p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {hasFreshReading && followUps.length > 0 ? (
+                  <section className="mt-6 space-y-4" aria-label="Follow-up readings">
+                    {followUps.map((followUp, index) => (
+                      <article
+                        key={`${index}-${followUp.question.slice(0, 24)}`}
+                        className="rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/5 p-4"
+                      >
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-fuchsia-300">Going deeper</p>
+                        <h3 className="mt-2 text-sm font-semibold leading-6 text-white">{followUp.question}</h3>
+                        {followUp.answer ? (
+                          <p className="mt-2 text-xs italic leading-5 text-slate-400">Your answer: {followUp.answer}</p>
+                        ) : null}
+                        <p className="mt-3 text-sm leading-7 text-slate-300">{followUp.reading}</p>
+                      </article>
+                    ))}
+                  </section>
+                ) : null}
+</article>
 
               <article className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-cyan-400/10 p-5">
                 <p className="text-sm uppercase tracking-[0.28em] text-slate-300">Premium</p>
@@ -972,6 +1183,7 @@ export default function DreamJournal() {
                 <span className="text-sm font-semibold tracking-wide text-white">User Private Vault Access</span>
               </div>
               <button type="button" onClick={member ? handleSignOut : handleSignIn} disabled={isSigningIn} className="vault-login-button mb-5 w-full rounded-full border border-white/25 px-4 py-3 text-sm font-bold text-white transition disabled:opacity-60">{member ? 'Sign out of your private vault' : isSigningIn ? 'Connecting…' : 'Sign in to your private vault'}</button>
+              {accountError ? <p className="mb-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-100" role="alert">{accountError}</p> : null}
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Saved dreams</p>
@@ -1248,6 +1460,59 @@ export default function DreamJournal() {
           <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="bottom-affiliate-title" className="font-display text-2xl font-bold uppercase tracking-[0.12em] text-cyan-200">✦ Featured sleep support suggested for you</h2><span className="rounded-full bg-gradient-to-r from-cyan-300 to-fuchsia-400 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-950">Featured sale</span></div>
           <p className="text-sm leading-6 text-slate-400">Sponsored resources may earn us a commission at no extra cost to you.</p>
           <div className="bottom-affiliate-list">{partnerLinks.slice(0, 3).map((item) => <a key={item.href} href={item.href} target="_blank" rel="sponsored noopener noreferrer" onClick={() => trackEvent('affiliate_click', { partner: item.label, offer: item.title })} className="bottom-affiliate-card"><span className={`bottom-affiliate-thumb bg-gradient-to-br ${item.gradient}`}>{item.imageSrc ? <img src={item.imageSrc} alt="" loading="lazy" /> : item.thumbnail}</span><span className="min-w-0"><span className="block text-[10px] uppercase tracking-[0.2em] text-cyan-200">{item.label}</span><strong className="mt-1 block truncate text-base text-white">{item.title}</strong></span><span className="bottom-affiliate-action">{item.buttonLabel} →</span></a>)}</div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-xl shadow-indigo-950/10 sm:p-8" aria-labelledby="sample-reading-title">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">See what you get</p>
+          <h2 id="sample-reading-title" className="mt-3 font-display text-3xl font-bold text-white">See an example reading</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">This is a sample only — an illustration of the reading style, not a reading of your dream.</p>
+          <details className="mt-5 rounded-2xl border border-white/10 bg-slate-950/60 px-5 py-4">
+            <summary className="cursor-pointer text-sm font-semibold text-white">Show the example</summary>
+            <div className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
+              <p className="rounded-xl bg-white/5 px-4 py-3 italic text-slate-200">&ldquo;I was flying over my childhood neighborhood, but the houses kept shifting and I couldn&apos;t find my way home.&rdquo;</p>
+              <p><strong className="text-white">Example reading:</strong> Flying often reflects a wish for freedom or a new perspective — rising above something that has felt confining. The shifting houses and the missing way home can point to a life transition: something familiar no longer looks the way you remember it. Together, this dream may be asking what &ldquo;home&rdquo; means to you right now, and which parts of your past still feel like solid ground.</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Sample only — your reading is personalized to your dream.</p>
+            </div>
+          </details>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-xl shadow-indigo-950/10 sm:p-8" aria-labelledby="faq-title">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">Good to know</p>
+          <h2 id="faq-title" className="mt-3 font-display text-3xl font-bold text-white">Frequently asked questions</h2>
+          <div className="mt-5 space-y-3">
+            <details className="rounded-2xl border border-white/10 bg-slate-950/60 px-5 py-4">
+              <summary className="cursor-pointer text-sm font-semibold text-white">Is my dream private?</summary>
+              <p className="mt-3 text-sm leading-7 text-slate-300">Yes. Your dreams are private by default — they are never sold and never used to train AI models. Save entries to your Dream Vault, and sign in to keep them synced across your devices.</p>
+            </details>
+            <details className="rounded-2xl border border-white/10 bg-slate-950/60 px-5 py-4">
+              <summary className="cursor-pointer text-sm font-semibold text-white">How does the AI interpretation work?</summary>
+              <p className="mt-3 text-sm leading-7 text-slate-300">Describe your dream in your own words, and the Dream AI connects its symbols, emotions, and context into a personalized reading with possible meanings and reflection questions.</p>
+            </details>
+            <details className="rounded-2xl border border-white/10 bg-slate-950/60 px-5 py-4">
+              <summary className="cursor-pointer text-sm font-semibold text-white">Does it predict the future?</summary>
+              <p className="mt-3 text-sm leading-7 text-slate-300">No. Readings are for reflection and entertainment — they offer possibilities to consider, not predictions or diagnoses.</p>
+            </details>
+            <details className="rounded-2xl border border-white/10 bg-slate-950/60 px-5 py-4">
+              <summary className="cursor-pointer text-sm font-semibold text-white">Can I cancel my subscription anytime?</summary>
+              <p className="mt-3 text-sm leading-7 text-slate-300">Yes. You can manage or cancel your subscription anytime through our secure Stripe billing portal — no phone calls, no hoops.</p>
+            </details>
+            <details className="rounded-2xl border border-white/10 bg-slate-950/60 px-5 py-4">
+              <summary className="cursor-pointer text-sm font-semibold text-white">Do I need an account to get a reading?</summary>
+              <p className="mt-3 text-sm leading-7 text-slate-300">No. You can get readings right away — your first three are free. A free account is only needed if you want your Dream Vault synced across devices.</p>
+            </details>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-xl shadow-indigo-950/10 sm:p-8" aria-labelledby="symbols-title">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">Dream dictionary</p>
+          <h2 id="symbols-title" className="mt-3 font-display text-3xl font-bold text-white">Explore common dream symbols</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">Look up what the images in your dreams might mean — then get a personalized reading for your own dream.</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {['Water', 'Flying', 'Teeth', 'House', 'Snake', 'Being chased'].map((symbol) => (
+              <a key={symbol} href="/dream-symbols" className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20">{symbol}</a>
+            ))}
+          </div>
+          <a href="/dream-terms" className="mt-4 inline-block text-sm font-semibold text-cyan-200 underline underline-offset-4">Browse all dream terms &rarr;</a>
         </section>
 
         <footer className="flex flex-col gap-4 border-t border-slate-900/10 py-8 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"><p>© 2026 Dream Interpretation Dictionary. For reflection and entertainment—not professional advice.</p><nav className="flex flex-wrap gap-4" aria-label="Footer navigation"><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/editorial-policy">Editorial policy</a><a href="/contact">Contact</a></nav></footer>

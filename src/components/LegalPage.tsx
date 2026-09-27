@@ -17,7 +17,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
       <h2>Interpretation and payment providers</h2><p>Dream text submitted for a reading is sent securely to our automated interpretation provider to generate the requested response. We ask the provider not to retain the response for later retrieval. Subscription checkout and billing are handled by Stripe; we do not receive or store your complete payment-card number.</p>
       <h2>Data retention and security</h2><p>Cloud journal entries remain in your private account until you delete them. Signed-out journal entries remain on your device until deleted or browser storage is cleared. Interpretation requests are processed to return the requested result. We use HTTPS, authenticated access controls, and request limits, but no online service can promise absolute security.</p>
       <h2>Children</h2><p>This general-audience service is not directed to children under 13, and we do not knowingly collect their personal information.</p>
-      <h2>Contact</h2><p>Privacy questions can be sent to <a href="mailto:office@a1tradelines.com">office@a1tradelines.com</a>.</p>
+      <h2>Contact</h2><p>Privacy questions can be sent to <a href="mailto:info@dreaminterpretation-dictionary.com">info@dreaminterpretation-dictionary.com</a>.</p>
     </>,
   },
   '/terms': {
@@ -41,7 +41,7 @@ const pages: Record<string, { title: string; intro: string; content: ReactNode }
   },
   '/contact': {
     title: 'Contact', intro: 'Questions, corrections, privacy requests, and partnership inquiries are welcome.', content: <>
-      <h2>Email</h2><p><a href="mailto:office@a1tradelines.com">office@a1tradelines.com</a></p>
+      <h2>Email</h2><p><a href="mailto:info@dreaminterpretation-dictionary.com">info@dreaminterpretation-dictionary.com</a></p>
       <h2>Helpful details</h2><p>For a technical problem, include the page address, device type, and what happened. Do not email private dream details, passwords, API keys, financial information, or medical records.</p>
       <h2>Response scope</h2><p>We can help with site operation and privacy questions, but we cannot provide individual medical or mental-health assessment through email.</p>
     </>,
@@ -60,7 +60,7 @@ export default function LegalPage({ path }: LegalPageProps) {
   const page = pages[path] || pages['/about'];
   return <main className="happy-site min-h-screen bg-celestial-gradient px-4 py-10 text-slate-100 sm:px-6">
     <div className="mx-auto max-w-3xl">
-      <nav className="mb-10 flex flex-wrap gap-3 text-sm" aria-label="Primary navigation"><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/">Dream tool</a><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/about">About</a><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/privacy">Privacy</a><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/contact">Contact</a></nav>
+      <nav className="mb-10 flex flex-wrap gap-3 text-sm" aria-label="Primary navigation"><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/">Dream tool</a><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/blog">Blog</a><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/dream-terms">Dream terms</a><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/about">About</a><a className="rounded-full border border-white/15 px-4 py-2 hover:bg-white/10" href="/contact">Contact</a></nav>
       <article className="rounded-3xl border border-white/10 bg-slate-950/75 p-6 shadow-2xl sm:p-10">
         <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">Dream Interpretation Dictionary</p><h1 className="mt-4 font-display text-4xl font-bold text-white">{page.title}</h1><p className="mt-4 text-lg leading-8 text-slate-300">{page.intro}</p><div className="prose prose-invert mt-8 max-w-none prose-a:text-cyan-300 prose-h2:font-display prose-h2:text-white prose-p:leading-7">{page.content}</div>
       </article>

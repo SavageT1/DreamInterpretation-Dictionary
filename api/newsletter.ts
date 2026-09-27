@@ -48,6 +48,34 @@ async function deliverNewsletterLead(email: string) {
     return;
   }
 
+  // GoHighLevel: upsert the subscriber as a tagged contact in the Dream
+  // Interpretation Dictionary sub-account. Token + location ID live in
+  // server-side env vars only (never exposed to the browser).
+  const ghlToken = process.env.GHL_PRIVATE_INTEGRATION_TOKEN?.trim();
+  const ghlLocationId = process.env.GHL_LOCATION_ID?.trim();
+  if (ghlToken && ghlLocationId) {
+    const response = await fetch('https://services.leadconnectorhq.com/contacts/upsert', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${ghlToken}`,
+        Version: '2021-07-28',
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        locationId: ghlLocationId,
+        email,
+        tags: ['dream-newsletter'],
+        source: 'dreaminterpretation-dictionary.com',
+      }),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`GHL contact upsert failed (${response.status}): ${body.slice(0, 160)}`);
+    }
+    return;
+  }
+
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const recipient = process.env.NEWSLETTER_RECIPIENT_EMAIL?.trim();
   if (!resendKey || !recipient) throw new Error('Newsletter delivery is not configured.');
