@@ -64,7 +64,7 @@ export default function LegalPage({ path }: LegalPageProps) {
       <article className="rounded-3xl border border-white/10 bg-slate-950/75 p-6 shadow-2xl sm:p-10">
         <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">Dream Interpretation Dictionary</p><h1 className="mt-4 font-display text-4xl font-bold text-white">{page.title}</h1><p className="mt-4 text-lg leading-8 text-slate-300">{page.intro}</p><div className="prose prose-invert mt-8 max-w-none prose-a:text-cyan-300 prose-h2:font-display prose-h2:text-white prose-p:leading-7">{page.content}</div>
       </article>
-      <footer className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-400"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/editorial-policy">Editorial policy</a><a href="/contact">Contact</a></footer>
+      <footer className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-400"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/editorial-policy">Editorial policy</a><a href="/contact">Contact</a><a href="https://www.youtube.com/@DreamInterpretationDictionary" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5" aria-label="Dream Interpretation Dictionary on YouTube"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg><span>YouTube</span></a></footer>
     </div>
   </main>;
 }

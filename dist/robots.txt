@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://www.dreaminterpretation-dictionary.com/sitemap.xml

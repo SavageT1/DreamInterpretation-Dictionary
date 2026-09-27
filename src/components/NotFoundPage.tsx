@@ -11,7 +11,7 @@ export default function NotFoundPage() {
           <a className="rounded-full border border-white/15 px-6 py-3 hover:bg-white/10" href="/dream-symbols">Browse dream symbols</a>
         </div>
       </article>
-      <footer className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-400"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/editorial-policy">Editorial policy</a><a href="/contact">Contact</a></footer>
+      <footer className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-400"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/editorial-policy">Editorial policy</a><a href="/contact">Contact</a><a href="https://www.youtube.com/@DreamInterpretationDictionary" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5" aria-label="Dream Interpretation Dictionary on YouTube"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg><span>YouTube</span></a></footer>
     </div>
   </main>;
 }
