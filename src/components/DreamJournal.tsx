@@ -585,6 +585,43 @@ export default function DreamJournal() {
     [hasFreshReading, interpretation],
   );
 
+  const isMemberView = authReady && !!member;
+  const memberName = member?.displayName?.trim() || member?.email?.split('@')[0] || 'Dreamer';
+  const latestEntry = useMemo(
+    () =>
+      vault.reduce<VaultEntry | null>(
+        (latest, entry) => (!latest || entry.createdAt > latest.createdAt ? entry : latest),
+        null,
+      ),
+    [vault],
+  );
+  const dreamsThisMonth = useMemo(() => {
+    const now = new Date();
+    return vault.filter((entry) => {
+      const created = new Date(entry.createdAt);
+      return created.getFullYear() === now.getFullYear() && created.getMonth() === now.getMonth();
+    }).length;
+  }, [vault]);
+
+  function scrollToDreamForm() {
+    const form = document.getElementById('dream-entry');
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function startNewDream() {
+    trackEvent('new_dream_started', { source: 'member_dashboard' });
+    scrollToDreamForm();
+    window.setTimeout(() => {
+      const field = document.getElementById('dream-description') as HTMLTextAreaElement | null;
+      if (field) field.focus({ preventScroll: true });
+    }, 650);
+  }
+
+  function openDashboardEntry(entry: VaultEntry) {
+    handleLoad(entry);
+    scrollToDreamForm();
+  }
+
   // Lightweight, client-side pattern insight derived from saved vault
   // entries. For a more accurate version, this belongs server-side
   // alongside the interpretation model.
@@ -925,25 +962,131 @@ export default function DreamJournal() {
           </div>
         </nav>
 
-        <div className="dream-hero-grid">
-          <header className="max-w-4xl py-4">
-            <p className="mb-5 text-sm font-bold uppercase tracking-[0.3em] text-cyan-300">Save tonight&apos;s</p>
-            <h1 className="font-display uppercase text-white">
-              <span className="dream-hero-title block text-7xl font-black leading-[0.82] tracking-[-0.07em] sm:text-8xl lg:text-[9rem]">Dream</span>
-              <span className="mt-4 block text-2xl font-bold tracking-[0.16em] text-cyan-200 sm:text-4xl">In Your</span>
-              <span className="mt-2 block text-sm font-bold tracking-[0.5em] text-fuchsia-300 sm:text-base">Private Dream Vault</span>
-            </h1>
-            <p className="mt-7 max-w-3xl text-lg font-semibold leading-tight text-slate-200 sm:text-2xl">
-              Describe a dream, discover possible meanings, and save recurring symbols and patterns in your private <span className="text-fuchsia-300">Dream Vault</span>.
-            </p>
-            <p className="hero-start mt-4 text-lg font-bold uppercase tracking-[0.22em] text-cyan-300">Start here.</p>
-          </header>
-          <div className="dream-orbit" aria-label="Dream Interpretation Dictionary logo"><div className="dream-orbit-glow" /><div className="dream-orbit-ring" /><img className="dream-orbit-logo" src="/dream-brand-icon.png" alt="Dream Interpretation Dictionary" /><span className="dream-orbit-star">✦</span></div>
-        </div>
+        {isMemberView ? (
+          <section className="member-dashboard space-y-6" aria-label="Your dream dashboard">
+            <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-black/30 backdrop-blur">
+              <p className="text-sm font-bold uppercase tracking-[0.3em] text-cyan-300">Welcome back</p>
+              <h1 className="mt-2 font-display text-3xl font-bold text-white sm:text-4xl">{memberName}</h1>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {isPremium ? (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-950">
+                    <span aria-hidden="true">✦</span> Premium active — unlimited readings
+                  </span>
+                ) : (
+                  <>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-200">
+                      Free plan — {freeInterpretationsLeft} free reading{freeInterpretationsLeft === 1 ? '' : 's'} left
+                    </span>
+                    <a href="#premium" className="text-xs font-semibold text-cyan-300 underline underline-offset-2">
+                      Upgrade for unlimited
+                    </a>
+                  </>
+                )}
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="font-display text-3xl font-bold text-white">{vault.length}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">Dreams saved</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="font-display text-3xl font-bold text-white">{dreamsThisMonth}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">Dreams this month</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={startNewDream}
+                className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01]"
+              >
+                <span aria-hidden="true">✦</span> Start a new dream
+              </button>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {latestEntry ? (
+                <article className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                  <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Continue where you left off</p>
+                  <h2 className="mt-3 font-display text-2xl text-white">{latestEntry.title}</h2>
+                  <p className="mt-1 text-xs uppercase tracking-[0.25em] text-slate-400">
+                    {new Date(latestEntry.createdAt).toLocaleDateString()}
+                  </p>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-300">{latestEntry.interpretation}</p>
+                  <button
+                    type="button"
+                    onClick={() => openDashboardEntry(latestEntry)}
+                    className="mt-4 inline-flex items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+                  >
+                    Open this dream
+                  </button>
+                </article>
+              ) : (
+                <article className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                  <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Your vault is empty</p>
+                  <h2 className="mt-3 font-display text-2xl text-white">No dreams saved yet</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Record your first dream to start tracking symbols and patterns over time.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={startNewDream}
+                    className="mt-4 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01]"
+                  >
+                    Record your first dream
+                  </button>
+                </article>
+              )}
+
+              {orderedVault.length > 0 ? (
+                <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6" aria-label="Recent dreams">
+                  <h2 className="font-display text-xl text-white">Recent dreams</h2>
+                  <ul className="mt-4 space-y-2">
+                    {orderedVault.slice(0, 5).map((entry) => (
+                      <li key={entry.id}>
+                        <button
+                          type="button"
+                          onClick={() => openDashboardEntry(entry)}
+                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-fuchsia-400/40 hover:bg-white/10"
+                        >
+                          <span className="block min-w-0 truncate text-sm font-semibold text-white">{entry.title}</span>
+                          <span className="shrink-0 text-xs uppercase tracking-[0.2em] text-slate-400">
+                            {new Date(entry.createdAt).toLocaleDateString()}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
+
+            <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6" aria-label="Dream calendar">
+              <h2 className="font-display text-xl text-white">Dream calendar</h2>
+              <p className="mt-1 text-xs text-slate-400">Days with a saved dream entry show the dream logo.</p>
+              <DreamCalendar entries={orderedVault} onSelect={setSelectedId} />
+            </section>
+          </section>
+        ) : (
+          <div className="dream-hero-grid">
+            <header className="max-w-4xl py-4">
+              <p className="mb-5 text-sm font-bold uppercase tracking-[0.3em] text-cyan-300">Save tonight&apos;s</p>
+              <h1 className="font-display uppercase text-white">
+                <span className="dream-hero-title block text-7xl font-black leading-[0.82] tracking-[-0.07em] sm:text-8xl lg:text-[9rem]">Dream</span>
+                <span className="mt-4 block text-2xl font-bold tracking-[0.16em] text-cyan-200 sm:text-4xl">In Your</span>
+                <span className="mt-2 block text-sm font-bold tracking-[0.5em] text-fuchsia-300 sm:text-base">Private Dream Vault</span>
+              </h1>
+              <p className="mt-7 max-w-3xl text-lg font-semibold leading-tight text-slate-200 sm:text-2xl">
+                Describe a dream, discover possible meanings, and save recurring symbols and patterns in your private <span className="text-fuchsia-300">Dream Vault</span>.
+              </p>
+              <p className="hero-start mt-4 text-lg font-bold uppercase tracking-[0.22em] text-cyan-300">Start here.</p>
+            </header>
+            <div className="dream-orbit" aria-label="Dream Interpretation Dictionary logo"><div className="dream-orbit-glow" /><div className="dream-orbit-ring" /><img className="dream-orbit-logo" src="/dream-brand-icon.png" alt="Dream Interpretation Dictionary" /><span className="dream-orbit-star">✦</span></div>
+          </div>
+        )}
 
         <div className="dream-main-grid grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="dream-entry-column space-y-6">
             <form
+              id="dream-entry"
               onSubmit={handleInterpret}
               className="dream-entry-card rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur"
               aria-busy={isInterpreting}
@@ -1271,7 +1414,7 @@ export default function DreamJournal() {
                 )}
               </div>
 
-              <DreamCalendar entries={orderedVault} onSelect={setSelectedId} />
+              {!member ? <DreamCalendar entries={orderedVault} onSelect={setSelectedId} /> : null}
 
               {patternInsight ? (
                 <div className="mt-5 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/5 p-4">
