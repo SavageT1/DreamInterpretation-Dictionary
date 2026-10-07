@@ -36,6 +36,10 @@
       "destination": "/dream-symbols.html"
     },
     {
+      "source": "/dream-symbols/:slug",
+      "destination": "/dream-symbols/:slug.html"
+    },
+    {
       "source": "/about",
       "destination": "/index.html"
     },
