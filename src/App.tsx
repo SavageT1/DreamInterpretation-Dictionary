@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import DreamJournal from './components/DreamJournal';
 import ConsentBanner from './components/ConsentBanner';
 import LegalPage from './components/LegalPage';
@@ -14,6 +15,7 @@ export default function App() {
     <div className="min-h-screen bg-[#050505]">
       {isHome ? <DreamJournal /> : legalPaths.includes(path) ? <LegalPage path={path} /> : educationPaths.includes(path) ? <EducationPage kind={path === '/blog' ? 'blog' : 'dictionary'} /> : <NotFoundPage />}
       <ConsentBanner />
+      <Analytics />
     </div>
   );
 }
