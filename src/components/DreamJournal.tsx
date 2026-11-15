@@ -20,6 +20,9 @@ type VaultEntry = {
   interpretation: string;
   createdAt: string;
   starred: boolean;
+  // Dream date chosen by the visitor. Kept on this device only until the
+  // Firestore rules allow it in the cloud (see firestore.rules).
+  dreamDate?: string;
 };
 
 // Mirrors the Firestore rules in firestore.rules (field names and size limits).
@@ -55,7 +58,14 @@ function readLocalVault(): VaultEntry[] {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     const parsed = stored ? (JSON.parse(stored) as unknown) : [];
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(toCloudEntry).filter((entry): entry is VaultEntry => entry !== null);
+    return parsed
+      .map((raw) => {
+        const entry = toCloudEntry(raw);
+        if (!entry) return null;
+        const dreamDate = (raw as { dreamDate?: unknown }).dreamDate;
+        return typeof dreamDate === 'string' && dreamDate ? { ...entry, dreamDate } : entry;
+      })
+      .filter((entry): entry is VaultEntry => entry !== null);
   } catch {
     return [];
   }
@@ -836,6 +846,9 @@ export default function DreamJournal() {
         }
       }
       trackEvent('dream_interpretation_completed', { source: 'dream_form' });
+      // Keep every reading. It is saved to the vault right away, so leaving the
+      // page and coming back does not lose it.
+      autoSaveReading(cleanDream, nextInterpretation, dreamDate);
     } catch (error) {
       setInterpretationError(
         error instanceof Error ? error.message : 'The interpretation service is unavailable.',
@@ -905,41 +918,77 @@ export default function DreamJournal() {
     }
   }
 
+  // Writes one reading to the vault: the cloud for signed-in members, this device otherwise.
+  // The date is stored only on this device; the cloud copy keeps the rules' exact fields.
+  async function persistReading(entry: VaultEntry): Promise<boolean> {
+    if (member) {
+      const { dreamDate: _localOnly, ...cloudEntry } = entry;
+      try {
+        await setDoc(doc(db, 'users', member.uid, 'dreams', entry.id), cloudEntry);
+      } catch {
+        return false;
+      }
+    } else {
+      setVault((current) => [entry, ...current]);
+    }
+    setSelectedId(entry.id);
+    return true;
+  }
+
+  function buildEntry(cleanDream: string, reading: string, notes: string, date: string): VaultEntry {
+    const chosen = date ? new Date(`${date}T12:00:00`) : new Date();
+    return {
+      id: createId(),
+      title: pickTitle(cleanDream),
+      dream: cleanDream,
+      dreamBookNotes: notes,
+      interpretation: reading,
+      createdAt: chosen.toISOString(),
+      starred: false,
+      ...(date ? { dreamDate: date } : {}),
+    };
+  }
+
+  // Saves a new reading automatically, so it is never lost when the visitor leaves.
+  // Free visitors keep the usual vault limit; past that, Save shows the paywall.
+  async function autoSaveReading(cleanDream: string, reading: string, date: string) {
+    if (!isPremium && !member && vault.length >= FREE_ENTRY_LIMIT) return;
+    const entry = buildEntry(cleanDream, reading, '', date);
+    const saved = await persistReading(entry);
+    if (!saved) {
+      setInterpretationError('This reading could not be saved. Use Save to try again.');
+    }
+  }
+
   async function handleSave() {
     const cleanDream = dream.trim();
     if (!cleanDream) return;
 
     const hasFreshReading = interpretedDream === cleanDream && interpretation.trim().length > 0;
     if (!hasFreshReading) return;
+
+    // Already saved (automatically or earlier): nothing to add.
+    if (vault.some((item) => item.dream === cleanDream && item.interpretation === interpretation)) {
+      return;
+    }
     if (!isPremium && vault.length >= FREE_ENTRY_LIMIT) {
       setShowPaywall(true);
       return;
     }
-    const nextInterpretation = interpretation;
-    const nextEntry: VaultEntry = {
-      id: createId(),
-      title: title.trim() || pickTitle(cleanDream),
-      dream: cleanDream,
-      dreamBookNotes: dreamBookNotes.trim(),
-      interpretation: nextInterpretation,
-      createdAt: new Date().toISOString(),
-      starred: false,
-    };
-
-    setInterpretation(nextInterpretation);
-    setInterpretedDream(cleanDream);
-    if (member) {
-      try {
-        await setDoc(doc(db, 'users', member.uid, 'dreams', nextEntry.id), nextEntry);
-      } catch {
-        setInterpretationError('This dream could not be synced. Please try again.');
-        return;
-      }
-    } else {
-      setVault((current) => [nextEntry, ...current]);
+    const entry = buildEntry(cleanDream, interpretation, dreamBookNotes.trim(), dreamDate);
+    const saved = await persistReading(entry);
+    if (!saved) {
+      setInterpretationError('This dream could not be synced. Please try again.');
+      return;
     }
-    setSelectedId(nextEntry.id);
     trackEvent('dream_saved', { vault_size: vault.length + 1 });
+  }
+
+  // Moves a saved reading to another day (kept on this device for visitors).
+  function moveReadingDate(id: string, date: string) {
+    setVault((current) => current.map((item) =>
+      item.id === id ? { ...item, dreamDate: date || undefined } : item,
+    ));
   }
 
   function handleLoad(entry: VaultEntry) {
@@ -1486,12 +1535,27 @@ export default function DreamJournal() {
                         <div>
                           <h3 className="font-semibold text-white">{entry.title}</h3>
                           <p className="mt-1 text-xs uppercase tracking-[0.25em] text-slate-400">
-                            {new Date(entry.createdAt).toLocaleDateString()}
+                            {entry.dreamDate
+                              ? new Date(`${entry.dreamDate}T12:00:00`).toLocaleDateString()
+                              : new Date(entry.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                         {entry.starred ? <span className="text-xs text-cyan-300">Starred</span> : null}
                       </div>
                       <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-300">{entry.interpretation}</p>
+
+                      {!member ? (
+                        <label className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                          Dream date
+                          <input
+                            type="date"
+                            value={entry.dreamDate ?? ''}
+                            onChange={(event) => moveReadingDate(entry.id, event.target.value)}
+                            aria-label={`Move the date of ${entry.title}`}
+                            className="rounded-xl border border-white/15 bg-white/5 px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      ) : null}
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button
