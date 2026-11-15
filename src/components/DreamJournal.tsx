@@ -10,7 +10,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
-import { collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
 type VaultEntry = {
   id: string;
@@ -50,6 +50,7 @@ function toCloudEntry(value: unknown): VaultEntry | null {
     interpretation,
     createdAt,
     starred: raw.starred === true,
+    ...(typeof raw.dreamDate === 'string' && raw.dreamDate ? { dreamDate: raw.dreamDate.slice(0, 10) } : {}),
   };
 }
 
@@ -919,12 +920,10 @@ export default function DreamJournal() {
   }
 
   // Writes one reading to the vault: the cloud for signed-in members, this device otherwise.
-  // The date is stored only on this device; the cloud copy keeps the rules' exact fields.
   async function persistReading(entry: VaultEntry): Promise<boolean> {
     if (member) {
-      const { dreamDate: _localOnly, ...cloudEntry } = entry;
       try {
-        await setDoc(doc(db, 'users', member.uid, 'dreams', entry.id), cloudEntry);
+        await setDoc(doc(db, 'users', member.uid, 'dreams', entry.id), entry);
       } catch {
         return false;
       }
@@ -984,11 +983,18 @@ export default function DreamJournal() {
     trackEvent('dream_saved', { vault_size: vault.length + 1 });
   }
 
-  // Moves a saved reading to another day (kept on this device for visitors).
-  function moveReadingDate(id: string, date: string) {
+  // Moves a saved reading to another day. Members save the change to their account.
+  async function moveReadingDate(id: string, date: string) {
     setVault((current) => current.map((item) =>
       item.id === id ? { ...item, dreamDate: date || undefined } : item,
     ));
+    if (member) {
+      try {
+        await updateDoc(doc(db, 'users', member.uid, 'dreams', id), { dreamDate: date || deleteField() });
+      } catch {
+        setAccountError('That date could not be saved. Please try again.');
+      }
+    }
   }
 
   function handleLoad(entry: VaultEntry) {
@@ -1544,7 +1550,7 @@ export default function DreamJournal() {
                       </div>
                       <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-300">{entry.interpretation}</p>
 
-                      {!member ? (
+                      {(
                         <label className="mt-3 flex items-center gap-2 text-xs text-slate-400">
                           Dream date
                           <input
@@ -1555,7 +1561,7 @@ export default function DreamJournal() {
                             className="rounded-xl border border-white/15 bg-white/5 px-2 py-1 text-xs text-white"
                           />
                         </label>
-                      ) : null}
+                      )}
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button

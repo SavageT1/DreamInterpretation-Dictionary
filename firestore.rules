@@ -7,8 +7,9 @@ service cloud.firestore {
           'id', 'title', 'dream', 'dreamBookNotes', 'interpretation', 'createdAt', 'starred'
         ])
         && data.keys().hasOnly([
-          'id', 'title', 'dream', 'dreamBookNotes', 'interpretation', 'createdAt', 'starred'
+          'id', 'title', 'dream', 'dreamBookNotes', 'interpretation', 'createdAt', 'starred', 'dreamDate'
         ])
+        && (!('dreamDate' in data.keys()) || (data.dreamDate is string && data.dreamDate.size() <= 10))
         && data.id == dreamId
         && data.title is string && data.title.size() <= 200
         && data.dream is string && data.dream.size() <= 6000
