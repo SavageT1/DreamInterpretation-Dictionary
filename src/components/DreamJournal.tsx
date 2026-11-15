@@ -2,7 +2,14 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import FEATURED_OFFER_IMAGE from '../../som-sleep-powder-drink-mix-all-flavors.jpeg';
 import { trackEvent } from '../lib/analytics';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
+import {
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  type User,
+} from 'firebase/auth';
 import { collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
 type VaultEntry = {
@@ -14,6 +21,60 @@ type VaultEntry = {
   createdAt: string;
   starred: boolean;
 };
+
+// Mirrors the Firestore rules in firestore.rules (field names and size limits).
+// Anything that does not fit is dropped before it is written to the cloud.
+function toCloudEntry(value: unknown): VaultEntry | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const id = typeof raw.id === 'string' ? raw.id.trim() : '';
+  if (!id || id.length > 128 || id.includes('/')) return null;
+  const text = (field: unknown, max: number) =>
+    typeof field === 'string' ? field.slice(0, max) : null;
+  const title = text(raw.title, 200);
+  const dream = text(raw.dream, 6000);
+  const dreamBookNotes = text(raw.dreamBookNotes, 2000);
+  const interpretation = text(raw.interpretation, 12000);
+  const createdAt = typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString();
+  if (title === null || dream === null || dreamBookNotes === null || interpretation === null) {
+    return null;
+  }
+  return {
+    id,
+    title,
+    dream,
+    dreamBookNotes,
+    interpretation,
+    createdAt,
+    starred: raw.starred === true,
+  };
+}
+
+function readLocalVault(): VaultEntry[] {
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const parsed = stored ? (JSON.parse(stored) as unknown) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(toCloudEntry).filter((entry): entry is VaultEntry => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalVault(entries: VaultEntry[]) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // Storage can be blocked (private mode, strict settings). The app still works.
+  }
+}
+
+// Browsers that block popups (and most in-app browsers) fall back to a full-page redirect.
+const REDIRECT_FALLBACK_CODES = new Set([
+  'auth/popup-blocked',
+  'auth/operation-not-supported-in-this-environment',
+  'auth/web-storage-unsupported',
+]);
 
 type PlanId = 'weekly' | 'monthly' | 'annual';
 
@@ -405,23 +466,20 @@ export default function DreamJournal() {
   }
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (!stored) return;
-
-      const parsed = JSON.parse(stored) as VaultEntry[];
-      if (Array.isArray(parsed)) {
-        setVault(parsed);
-      }
-    } catch {
-      setVault([]);
-    }
+    setVault(readLocalVault());
   }, []);
 
-  useEffect(() => onAuthStateChanged(auth, (nextMember) => {
-    setMember(nextMember);
-    setAuthReady(true);
-  }), []);
+  useEffect(() => {
+    // Completes a sign-in that was handed off to a full-page redirect.
+    getRedirectResult(auth).catch(() => {
+      setAccountError('Sign-in could not be completed. Please try again.');
+    });
+    return onAuthStateChanged(auth, (nextMember) => {
+      setMember(nextMember);
+      setAuthReady(true);
+      if (nextMember) void migrateLocalVault(nextMember);
+    });
+  }, []);
 
   useEffect(() => {
     if (!authReady || !member) return;
@@ -430,7 +488,9 @@ export default function DreamJournal() {
     const unsubscribe = onSnapshot(
       dreams,
       (snapshot) => {
-        const cloudVault = snapshot.docs.map((item) => item.data() as VaultEntry);
+        const cloudVault = snapshot.docs
+          .map((item) => toCloudEntry({ ...item.data(), id: item.id }))
+          .filter((entry): entry is VaultEntry => entry !== null);
         setVault(cloudVault);
         setIsCloudSyncing(false);
         setAccountError('');
@@ -494,16 +554,30 @@ export default function DreamJournal() {
 
   useEffect(() => {
     if (member) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(vault));
-    } catch {
-      // Ignore storage failures so the app still works offline.
-    }
+    writeLocalVault(vault);
   }, [member, vault]);
 
   async function accountHeaders(user: User | null = member) {
     if (!user) return {};
     return { Authorization: `Bearer ${await user.getIdToken()}` };
+  }
+
+  // Copies dreams saved on this device into the signed-in account. Entries that
+  // fail stay on the device so nothing is lost; the next sign-in retries them.
+  async function migrateLocalVault(user: User) {
+    const localEntries = readLocalVault();
+    if (localEntries.length === 0) return;
+    const results = await Promise.allSettled(localEntries.map((entry) =>
+      setDoc(doc(db, 'users', user.uid, 'dreams', entry.id), entry, { merge: true }),
+    ));
+    const failed = results.filter((result) => result.status === 'rejected').length;
+    if (failed === 0) {
+      writeLocalVault([]);
+    } else {
+      setAccountError(
+        `${failed} dream${failed === 1 ? ' is' : 's are'} still saved only on this device. Sign in again to retry.`,
+      );
+    }
   }
 
   async function handleSignIn(): Promise<User | null> {
@@ -516,24 +590,33 @@ export default function DreamJournal() {
       setAccountError('Sign-in is taking too long. If a sign-in window opened, finish it there; otherwise check for a blocked popup and try again.');
     }, 60000);
     try {
-      const localVault = [...vault];
       const result = await signInWithPopup(auth, googleProvider);
-      await Promise.all(localVault.map((entry) =>
-        setDoc(doc(db, 'users', result.user.uid, 'dreams', entry.id), entry, { merge: true }),
-      ));
       trackEvent('login', { method: 'Google' });
       trackEvent('member_signed_in');
       return result.user;
     } catch (error) {
+      const code = (error as { code?: unknown })?.code;
+      if (typeof code === 'string' && REDIRECT_FALLBACK_CODES.has(code)) {
+        // Hands off to Google and returns here; getRedirectResult finishes the sign-in.
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return null;
+        } catch {
+          setAccountError('Sign-in could not be completed. Please try again.');
+          return null;
+        }
+      }
       const message = error instanceof Error ? error.message : '';
       setAccountError(
         message.includes('unauthorized-domain')
-          ? 'Secure sign-in is being connected to this domain. Please try again shortly.'
-          : message.includes('popup-blocked')
-            ? 'Your browser blocked the sign-in window. Allow popups for this site, then try again.'
-            : message.includes('popup-closed') || message.includes('cancelled-popup')
-              ? 'Sign-in was cancelled.'
-              : 'Sign-in could not be completed. Please try again.',
+          ? 'Sign-in is not available on this address yet. Please use www.dreaminterpretation-dictionary.com.'
+          : message.includes('network-request-failed')
+            ? 'Connection problem. Check your internet and try again.'
+            : message.includes('too-many-requests')
+              ? 'Too many sign-in attempts. Wait a minute and try again.'
+              : message.includes('popup-closed') || message.includes('cancelled-popup')
+                ? 'Sign-in was cancelled.'
+                : 'Sign-in could not be completed. Please try again.',
       );
       return null;
     } finally {
@@ -543,7 +626,12 @@ export default function DreamJournal() {
   }
 
   async function handleSignOut() {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch {
+      setAccountError('Sign-out did not complete. Please try again.');
+      return;
+    }
     setVault([]);
     setIsPremium(false);
     trackEvent('member_signed_out');
@@ -866,7 +954,11 @@ export default function DreamJournal() {
   async function toggleStar(id: string) {
     const entry = vault.find((item) => item.id === id);
     if (member && entry) {
-      await updateDoc(doc(db, 'users', member.uid, 'dreams', id), { starred: !entry.starred });
+      try {
+        await updateDoc(doc(db, 'users', member.uid, 'dreams', id), { starred: !entry.starred });
+      } catch {
+        setAccountError('That change could not be saved. Please try again.');
+      }
       return;
     }
     setVault((current) =>
@@ -876,7 +968,12 @@ export default function DreamJournal() {
 
   async function removeEntry(id: string) {
     if (member) {
-      await deleteDoc(doc(db, 'users', member.uid, 'dreams', id));
+      try {
+        await deleteDoc(doc(db, 'users', member.uid, 'dreams', id));
+      } catch {
+        setAccountError('That dream could not be deleted. Please try again.');
+        return;
+      }
     } else {
     setVault((current) => current.filter((entry) => entry.id !== id));
     }
@@ -886,14 +983,24 @@ export default function DreamJournal() {
   }
 
   async function openBillingRoute(route: '/api/checkout' | '/api/portal', plan?: PlanId) {
-    setIsStartingCheckout(true);
     setCheckoutPlan(plan ?? null);
     setInterpretationError('');
 
+    // Subscriptions belong to a Google account, so sign in before checkout.
+    let user: User | null = member;
+    if (route === '/api/checkout' && !user) {
+      user = await handleSignIn();
+      if (!user) {
+        setAccountError((current) => current || 'Sign in with Google to subscribe. Your saved dreams will stay with your account.');
+        return;
+      }
+    }
+
+    setIsStartingCheckout(true);
     try {
       const response = await fetch(route, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await accountHeaders()) },
+        headers: { 'Content-Type': 'application/json', ...(await accountHeaders(user)) },
         // The backend defaults to "weekly" if no plan is sent, so this is
         // safe for the /api/portal call (which ignores the body).
         body: route === '/api/checkout' ? JSON.stringify({ plan: plan ?? 'weekly' }) : undefined,

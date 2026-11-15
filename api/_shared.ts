@@ -235,11 +235,46 @@ export async function findActiveSubscriptionForEmail(email: string) {
   return null;
 }
 
-export async function getActiveSubscriptionId(request: IncomingMessage) {
-  const cookieSubscription = readPremiumSubscriptionId(request);
-  if (cookieSubscription && await isSubscriptionActive(cookieSubscription)) {
-    return cookieSubscription;
+// Premium belongs to a signed-in account. Subscriptions created at checkout carry
+// the Firebase uid in metadata, which is the primary lookup. The email match only
+// covers older subscriptions bought before sign-in was required.
+export async function findActiveSubscriptionForUid(uid: string) {
+  try {
+    const result = await stripeRequest(
+      `/v1/subscriptions/search?query=${encodeURIComponent(`metadata['firebase_uid']:'${uid}'`)}&limit=10`,
+    );
+    const list = (result.data as Array<{ id?: unknown; status?: unknown }> | undefined) ?? [];
+    const active = list.find((subscription) =>
+      subscription.status === 'active' || subscription.status === 'trialing');
+    return typeof active?.id === 'string' ? active.id : null;
+  } catch {
+    return null;
   }
+}
+
+// Subscriptions bought before sign-in was required have no uid in metadata. They
+// are still honored through the browser cookie, so existing subscribers keep access.
+async function findLegacyCookieSubscription(request: IncomingMessage) {
+  const subscriptionId = readPremiumSubscriptionId(request);
+  if (!subscriptionId) return null;
+  try {
+    const subscription = await stripeRequest(
+      `/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+    );
+    const metadata = subscription.metadata as { firebase_uid?: unknown } | undefined;
+    const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+    return isActive && !metadata?.firebase_uid ? subscriptionId : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getActiveSubscriptionId(request: IncomingMessage) {
   const identity = await getFirebaseIdentity(request);
-  return identity ? findActiveSubscriptionForEmail(identity.email) : null;
+  if (identity) {
+    const subscriptionId = (await findActiveSubscriptionForUid(identity.uid))
+      ?? (await findActiveSubscriptionForEmail(identity.email));
+    if (subscriptionId) return subscriptionId;
+  }
+  return findLegacyCookieSubscription(request);
 }

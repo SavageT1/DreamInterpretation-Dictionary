@@ -64,6 +64,9 @@ export default async function handler(request: IncomingMessage, response: Server
     const origin = getPublicOrigin();
     const checkoutNonce = createCheckoutNonce();
     const identity = await getFirebaseIdentity(request);
+    if (!identity) {
+      return sendJson(response, 401, { error: 'Please sign in with Google before subscribing.' });
+    }
     const configuredPriceId = getPriceIdForPlan(plan)?.trim();
     if (!configuredPriceId) {
       return sendJson(response, 503, { error: `${plan} checkout is not configured.` });
@@ -78,10 +81,8 @@ export default async function handler(request: IncomingMessage, response: Server
       'subscription_data[metadata][product]': 'dream_interpretation_premium',
       'subscription_data[metadata][plan]': plan,
     });
-    if (identity) {
-      form.set('customer_email', identity.email);
-      form.set('subscription_data[metadata][firebase_uid]', identity.uid);
-    }
+    form.set('customer_email', identity.email);
+    form.set('subscription_data[metadata][firebase_uid]', identity.uid);
     form.set('line_items[0][price]', configuredPriceId);
     const session = await stripeRequest('/v1/checkout/sessions', {
       method: 'POST',
