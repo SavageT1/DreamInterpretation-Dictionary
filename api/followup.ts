@@ -1,9 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
-  createFreeUsageCookie,
-  FREE_INTERPRETATION_LIMIT,
   getActiveSubscriptionId,
-  readFreeUsage,
+  getClientAddress,
+  getFirebaseIdentity,
+  getFreeUsageTarget,
+  releaseFreeReading,
+  reserveFreeReading,
   sendJson,
 } from './_shared.js';
 
@@ -43,12 +45,6 @@ async function readBody(request: RequestWithBody) {
     question?: unknown;
     answer?: unknown;
   };
-}
-
-function getClientAddress(request: IncomingMessage) {
-  const forwarded = request.headers['x-forwarded-for'];
-  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  return value?.split(',')[0]?.trim() || request.socket?.remoteAddress || 'unknown';
 }
 
 function isRateLimited(request: IncomingMessage) {
@@ -120,18 +116,26 @@ export default async function handler(request: RequestWithBody, response: Server
     });
   }
 
+  const identity = await getFirebaseIdentity(request);
   const premiumSubscriptionId = await getActiveSubscriptionId(request);
   const hasPremium = Boolean(premiumSubscriptionId);
-  const freeUsage = readFreeUsage(request);
-
-  if (!hasPremium && freeUsage >= FREE_INTERPRETATION_LIMIT) {
-    return sendJson(response, 402, {
-      error: 'Your three free interpretations are complete. Upgrade for unlimited readings.',
-      upgradeRequired: true,
-    });
-  }
+  const freeTarget = getFreeUsageTarget(request, identity, !hasPremium);
+  let reserved = false;
 
   try {
+    let freeRemaining: number | null = null;
+    if (!hasPremium) {
+      const remaining = await reserveFreeReading(freeTarget.keys);
+      if (remaining === null) {
+        return sendJson(response, 402, {
+          error: 'Your three free interpretations are complete. Upgrade for unlimited readings.',
+          upgradeRequired: true,
+        });
+      }
+      reserved = true;
+      freeRemaining = remaining;
+    }
+
     const openAIResponse = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
@@ -181,9 +185,10 @@ export default async function handler(request: RequestWithBody, response: Server
       });
     }
 
+    reserved = false;
     const headers: Record<string, string> = {};
-    if (!hasPremium) {
-      headers['Set-Cookie'] = createFreeUsageCookie(freeUsage + 1);
+    if (freeTarget.setCookie) {
+      headers['Set-Cookie'] = freeTarget.setCookie;
     }
 
     return sendJson(
@@ -192,9 +197,7 @@ export default async function handler(request: RequestWithBody, response: Server
       {
         interpretation: followUp,
         premium: hasPremium,
-        freeRemaining: hasPremium
-          ? null
-          : Math.max(0, FREE_INTERPRETATION_LIMIT - freeUsage - 1),
+        freeRemaining,
       },
       headers,
     );
@@ -205,5 +208,13 @@ export default async function handler(request: RequestWithBody, response: Server
     return sendJson(response, 502, {
       error: 'The interpretation service is unavailable. Please try again.',
     });
+  } finally {
+    if (reserved) {
+      await releaseFreeReading(freeTarget.keys).catch((error) => {
+        console.error('Could not release reserved reading', {
+          name: error instanceof Error ? error.name : 'UnknownError',
+        });
+      });
+    }
   }
 }

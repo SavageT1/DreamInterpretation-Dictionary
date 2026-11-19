@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export const FREE_INTERPRETATION_LIMIT = 3;
@@ -148,6 +148,94 @@ export function readFreeUsage(request: IncomingMessage) {
 export function createFreeUsageCookie(count: number) {
   const payload = String(count);
   return `dream_free=${encodeURIComponent(`${payload}.${sign(payload)}`)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`;
+}
+
+// Free readings are counted on the server in Upstash Redis, so clearing cookies
+// cannot reset them. Signed-in members are counted by uid. Visitors are counted by
+// a signed visitor cookie and by a hashed IP, and either counter reaching the limit
+// blocks the reading.
+export function getClientAddress(request: IncomingMessage) {
+  const forwarded = request.headers['x-forwarded-for'];
+  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return value?.split(',')[0]?.trim() || request.socket?.remoteAddress || 'unknown';
+}
+
+async function usageStore(command: Array<string>) {
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  if (!url || !token) throw new Error('Usage store is not configured.');
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(command),
+  });
+  const data = (await response.json()) as { result?: unknown; error?: string };
+  if (!response.ok || data.error) throw new Error(data.error || 'Usage store request failed.');
+  return data.result;
+}
+
+export type FreeUsageTarget = {
+  keys: string[];
+  setCookie?: string;
+};
+
+export function getFreeUsageTarget(
+  request: IncomingMessage,
+  identity: { uid: string } | null,
+  create: boolean,
+): FreeUsageTarget {
+  if (identity) return { keys: [`free:uid:${identity.uid}`] };
+
+  const visitorId = readVisitorId(request);
+  const ipHash = createHash('sha256').update(getClientAddress(request)).digest('base64url');
+  const keys = [`free:ip:${ipHash}`];
+  if (visitorId) keys.unshift(`free:visitor:${visitorId}`);
+  if (visitorId || !create) return { keys };
+
+  const newVisitorId = randomBytes(24).toString('base64url');
+  return {
+    keys: [`free:visitor:${newVisitorId}`, ...keys],
+    setCookie: createVisitorCookie(newVisitorId),
+  };
+}
+
+function readVisitorId(request: IncomingMessage) {
+  const token = parseCookies(request).dream_visitor;
+  if (!token) return null;
+  const visitorId = verifySignedValue(token);
+  return visitorId && /^[A-Za-z0-9_-]{32}$/.test(visitorId) ? visitorId : null;
+}
+
+function createVisitorCookie(visitorId: string) {
+  return `dream_visitor=${encodeURIComponent(`${visitorId}.${sign(visitorId)}`)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`;
+}
+
+export async function readFreeReadingsUsed(keys: string[]) {
+  if (keys.length === 0) return 0;
+  const results = (await usageStore(['MGET', ...keys])) as Array<string | null>;
+  return Math.max(0, ...results.map((value) => Number(value ?? 0)));
+}
+
+// Reserves one reading before the AI call. Returns the remaining count, or null when
+// the limit is already reached. Every counter is rolled back when it is over the limit.
+export async function reserveFreeReading(keys: string[]) {
+  const counts: number[] = [];
+  for (const key of keys) {
+    counts.push(Number(await usageStore(['INCR', key])));
+  }
+  if (Math.max(...counts) > FREE_INTERPRETATION_LIMIT) {
+    await releaseFreeReading(keys);
+    return null;
+  }
+  return FREE_INTERPRETATION_LIMIT - Math.max(...counts);
+}
+
+// Gives back a reserved reading when the AI call fails.
+export async function releaseFreeReading(keys: string[]) {
+  for (const key of keys) {
+    await usageStore(['DECR', key]);
+  }
 }
 
 export async function stripeRequest(path: string, options: RequestInit = {}) {
