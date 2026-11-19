@@ -224,10 +224,13 @@ function limitFor(key: string) {
   return key.startsWith('free:ip:') ? IP_READING_LIMIT : FREE_INTERPRETATION_LIMIT;
 }
 
+// A visitor with no device cookie yet has not used any device readings, so the
+// count is capped at the device limit even when the IP has more room.
 export async function readFreeReadingsRemaining(keys: string[]) {
   if (keys.length === 0) return FREE_INTERPRETATION_LIMIT;
   const results = (await usageStore(['MGET', ...keys])) as Array<string | null>;
-  return Math.min(...keys.map((key, index) => limitFor(key) - Number(results[index] ?? 0)));
+  const remaining = Math.min(...keys.map((key, index) => limitFor(key) - Number(results[index] ?? 0)));
+  return Math.min(FREE_INTERPRETATION_LIMIT, remaining);
 }
 
 // Reserves one reading before the AI call. Returns the remaining count, or null when
