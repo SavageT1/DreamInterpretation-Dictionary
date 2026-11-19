@@ -154,7 +154,11 @@ export function createFreeUsageCookie(count: number) {
 // cannot reset them. Signed-in members are counted by uid. Visitors are counted by
 // a signed visitor cookie and by a hashed IP, and either counter reaching the limit
 // blocks the reading.
+// x-forwarded-for's first entry is whatever the client sent, so it can be faked.
+// Vercel sets x-real-ip from the connecting client, so that header is used first.
 export function getClientAddress(request: IncomingMessage) {
+  const realIp = request.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp.trim()) return realIp.trim();
   const forwarded = request.headers['x-forwarded-for'];
   const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   return value?.split(',')[0]?.trim() || request.socket?.remoteAddress || 'unknown';
