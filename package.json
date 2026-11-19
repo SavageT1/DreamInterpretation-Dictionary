@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.mjs",
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
