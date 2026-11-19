@@ -1,11 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
-  FREE_INTERPRETATION_LIMIT,
   getActiveSubscriptionId,
   getFirebaseIdentity,
   getFreeUsageTarget,
   PAYMENTS_ENABLED,
-  readFreeReadingsUsed,
+  readFreeReadingsRemaining,
   sendJson,
 } from './_shared.js';
 
@@ -18,13 +17,12 @@ export default async function handler(request: IncomingMessage, response: Server
   const identity = await getFirebaseIdentity(request);
   const subscriptionId = await getActiveSubscriptionId(request);
   const premium = Boolean(subscriptionId);
-  const used = premium
-    ? 0
-    : await readFreeReadingsUsed(getFreeUsageTarget(request, identity, false).keys);
-  const freeRemaining = Math.max(0, FREE_INTERPRETATION_LIMIT - used);
+  const remaining = premium
+    ? null
+    : Math.max(0, await readFreeReadingsRemaining(getFreeUsageTarget(request, identity, false).keys));
   return sendJson(response, 200, {
     premium,
     paymentsEnabled: PAYMENTS_ENABLED,
-    freeRemaining: premium ? null : freeRemaining,
+    freeRemaining: remaining,
   });
 }

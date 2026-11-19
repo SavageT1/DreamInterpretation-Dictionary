@@ -215,24 +215,34 @@ function createVisitorCookie(visitorId: string) {
   return `dream_visitor=${encodeURIComponent(`${visitorId}.${sign(visitorId)}`)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`;
 }
 
-export async function readFreeReadingsUsed(keys: string[]) {
-  if (keys.length === 0) return 0;
+// Each device or account gets FREE_INTERPRETATION_LIMIT readings. An IP gets the
+// looser IP_READING_LIMIT, so households and offices sharing one address are not
+// locked out after one person uses their readings.
+const IP_READING_LIMIT = 10;
+
+function limitFor(key: string) {
+  return key.startsWith('free:ip:') ? IP_READING_LIMIT : FREE_INTERPRETATION_LIMIT;
+}
+
+export async function readFreeReadingsRemaining(keys: string[]) {
+  if (keys.length === 0) return FREE_INTERPRETATION_LIMIT;
   const results = (await usageStore(['MGET', ...keys])) as Array<string | null>;
-  return Math.max(0, ...results.map((value) => Number(value ?? 0)));
+  return Math.min(...keys.map((key, index) => limitFor(key) - Number(results[index] ?? 0)));
 }
 
 // Reserves one reading before the AI call. Returns the remaining count, or null when
-// the limit is already reached. Every counter is rolled back when it is over the limit.
+// any counter is already at its limit. Every counter is rolled back in that case.
 export async function reserveFreeReading(keys: string[]) {
   const counts: number[] = [];
   for (const key of keys) {
     counts.push(Number(await usageStore(['INCR', key])));
   }
-  if (Math.max(...counts) > FREE_INTERPRETATION_LIMIT) {
+  const overLimit = keys.some((key, index) => counts[index] > limitFor(key));
+  if (overLimit) {
     await releaseFreeReading(keys);
     return null;
   }
-  return FREE_INTERPRETATION_LIMIT - Math.max(...counts);
+  return Math.min(...keys.map((key, index) => limitFor(key) - counts[index]));
 }
 
 // Gives back a reserved reading when the AI call fails.
