@@ -32,6 +32,10 @@
       "destination": "/lucid-dreaming.html"
     },
     {
+      "source": "/sleep-meditation",
+      "destination": "/sleep-meditation.html"
+    },
+    {
       "source": "/dream-symbols",
       "destination": "/dream-symbols.html"
     },
