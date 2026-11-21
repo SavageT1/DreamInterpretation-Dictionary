@@ -1718,6 +1718,23 @@ export default function DreamJournal() {
           </article>
         </section>
 
+        <section className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-xl shadow-indigo-950/10 sm:p-8" aria-labelledby="sleep-preview-title">
+          <div className="grid gap-6 md:grid-cols-[1fr_1.2fr] md:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-700">Wind down</p>
+              <h2 id="sleep-preview-title" className="mt-3 font-display text-2xl font-bold text-slate-950">A sleep meditation for calmer nights</h2>
+              <p className="mt-3 leading-7 text-slate-700">A slow, guided recording with soft narration and calm music to help you settle before bed and prepare for dreaming.</p>
+              <p className="mt-4 flex flex-wrap gap-4 text-sm font-semibold">
+                <a href="/sleep-meditation" className="text-teal-700 underline underline-offset-4">Read the full guide &rarr;</a>
+                <a href="https://www.youtube.com/watch?v=ZAJNFDQoSiE" target="_blank" rel="noopener noreferrer" className="text-teal-700 underline underline-offset-4">Watch on YouTube &rarr;</a>
+              </p>
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-950">
+              <iframe className="absolute inset-0 h-full w-full border-0" src="https://www.youtube-nocookie.com/embed/ZAJNFDQoSiE" title="Deep Stress Relief Sleep Meditation" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+            </div>
+          </div>
+        </section>
+
         <section id="premium" className="dream-pricing-section" style={{ marginTop: '3.5rem' }} aria-label="Pricing options">
           <div className="mb-5 text-center"><p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-300">Keep track of your dreams</p><h2 className="mt-2 font-display text-3xl font-bold text-white">Start understanding your dreams</h2></div>
 
